@@ -498,6 +498,163 @@
       line-height: 1.5;
     }
 
+    /* ============ SETTINGS page ============ */
+    .set-h {
+      font-family: var(--grot);
+      font-size: 26px;
+      color: var(--fg-bright);
+      font-weight: 400;
+      margin: 2px 0 4px;
+    }
+
+    .set-sub {
+      font-size: 11px;
+      color: var(--dim);
+      margin-bottom: 16px;
+      letter-spacing: .02em;
+    }
+
+    .set-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 14px 12px;
+      margin-bottom: 14px;
+    }
+
+    .set-card-title {
+      font-size: 10px;
+      color: var(--dim);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .set-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: stretch;
+    }
+
+    .set-row .set-field {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .set-field label {
+      font-size: 10px;
+      color: var(--dim);
+      letter-spacing: .04em;
+    }
+
+    .set-field input,
+    .set-field select {
+      background: var(--bg-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--fg-bright);
+      font-family: var(--mono);
+      font-size: 13px;
+      padding: 9px 10px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .set-field input:focus,
+    .set-field select:focus {
+      outline: none;
+      border-color: var(--line-2);
+    }
+
+    .set-seg {
+      display: flex;
+      gap: 6px;
+    }
+
+    .set-seg button {
+      flex: 1;
+      background: var(--bg-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 9px 10px;
+      cursor: pointer;
+      transition: all .14s;
+    }
+
+    .set-seg button.on {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #fff;
+    }
+
+    .set-energy {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .set-energy .ev {
+      background: var(--bg-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px 10px;
+    }
+
+    .set-energy .ev .lab {
+      font-size: 9.5px;
+      color: var(--dim);
+      letter-spacing: .04em;
+    }
+
+    .set-energy .ev .val {
+      font-family: var(--grot);
+      font-size: 18px;
+      color: var(--fg-bright);
+      margin-top: 2px;
+    }
+
+    .set-energy .ev .un {
+      font-size: 10px;
+      color: var(--dim);
+      margin-left: 3px;
+    }
+
+    .set-note {
+      font-size: 10px;
+      color: var(--dim);
+      margin-top: 10px;
+      line-height: 1.55;
+    }
+
+    /* settings preview row on home mod card */
+    .mod-set-row {
+      display: flex;
+      gap: 14px;
+      margin-top: 12px;
+      font-size: 11px;
+      color: var(--dim);
+    }
+
+    .mod-set-row span {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .mod-set-row b {
+      font-family: var(--grot);
+      font-size: 16px;
+      font-weight: 400;
+      color: var(--fg-bright);
+    }
+
     /* ============ RECORD: day picker ============ */
     .prompt {
       font-size: 11.5px;
@@ -1309,6 +1466,7 @@
         <button class="tab" data-tab="record"><span class="sig">$</span> Record</button>
         <button class="tab" data-tab="stat"><span class="sig">~</span> Stats</button>
         <button class="tab" data-tab="fast"><span class="sig">◷</span> 16+8</button>
+        <button class="tab" data-tab="settings"><span class="sig">⚙</span> Set</button>
       </div>
     </div>
     <div class="body" id="body"></div>
@@ -1333,7 +1491,21 @@
       view: 'list',          // list | day
       dayKey: null,
       data: {},              // { 'YYYY-MM-DD': {...} }
+      profile: {             // local-only; per device
+        dob: '',             // 'YYYY-MM-DD'
+        height: '',          // cm
+        gender: '',          // 'M' | 'F'
+        activity: 'sedentary'// sedentary | light | moderate | active | very
+      },
       demoNow: null,         // for ?t=HHmm preview of fasting clock
+    };
+
+    const ACTIVITY = {
+      sedentary: { f: 1.2,   label: 'sedentary · little exercise' },
+      light:     { f: 1.375, label: 'light · 1–3 d/wk' },
+      moderate:  { f: 1.55,  label: 'moderate · 3–5 d/wk' },
+      active:    { f: 1.725, label: 'active · 6–7 d/wk' },
+      very:      { f: 1.9,   label: 'very active · 2× per day' }
     };
 
     const body = document.getElementById('body');
@@ -1360,12 +1532,21 @@
 
     /* ---------- persistence (localStorage — works on GitHub Pages & phone) ---------- */
     const STORE_KEY = 'fasting16_8_data_v1';   // 所有数据存在这一个键里
+    const PROFILE_KEY = 'fasting16_8_profile_v1'; // 本机配置（身高/性别/出生日/活动量）
 
     function loadAll() {
       try {
         const raw = localStorage.getItem(STORE_KEY);
         if (raw) { state.data = JSON.parse(raw) || {}; }
       } catch (e) { console.log('load error', e); state.data = {}; }
+      try {
+        const rawP = localStorage.getItem(PROFILE_KEY);
+        if (rawP) state.profile = Object.assign(state.profile, JSON.parse(rawP) || {});
+      } catch (e) { console.log('profile load error', e); }
+    }
+    function saveProfile() {
+      try { localStorage.setItem(PROFILE_KEY, JSON.stringify(state.profile)); }
+      catch (e) { console.log('profile save error', e); }
     }
     let saveTimer = null;
     function queueSave(k) {
@@ -1472,7 +1653,74 @@
     /* ---------- compute ---------- */
     function burnTotal(d) { return Object.values(d.exercises).reduce((s, v) => s + num(v), 0); }
     function intakeTotal(d) { return ['breakfast', 'lunch', 'dinner'].reduce((s, m) => s + num(d.meals[m].cal), 0); }
-    function deficit(d) { return burnTotal(d) - intakeTotal(d); } // positive = deficit (good)
+    function deficit(d) { return burnTotal(d) - intakeTotal(d); } // legacy: exercise burn − food
+
+    /* ---------- BMR / TDEE / effective deficit ---------- */
+    function profileComplete() {
+      const p = state.profile;
+      return !!(p.dob && num(p.height) > 0 && (p.gender === 'M' || p.gender === 'F'));
+    }
+    function ageOn(dateKey, dob) {
+      if (!dob) return null;
+      const d = keyToDate(dateKey), b = keyToDate(dob);
+      let a = d.getFullYear() - b.getFullYear();
+      const m = d.getMonth() - b.getMonth();
+      if (m < 0 || (m === 0 && d.getDate() < b.getDate())) a--;
+      return a;
+    }
+    function currentAge() { return state.profile.dob ? ageOn(todayKey(), state.profile.dob) : null; }
+    // weight kg, height cm, age yr, gender M/F
+    function bmrMifflin(weight, height, age, gender) {
+      return 10 * weight + 6.25 * height - 5 * age + (gender === 'M' ? 5 : -161);
+    }
+    // weight kg, bf %
+    function bmrKatch(weight, bfPct) {
+      const lbm = weight * (1 - bfPct / 100);
+      return 370 + 21.6 * lbm;
+    }
+    // most recent value on or before dateKey
+    function lastKnownOn(field, dateKey) {
+      const all = Object.keys(state.data).sort();
+      let best = null;
+      for (const k of all) {
+        if (k > dateKey) break;
+        const v = state.data[k][field];
+        if (v !== '' && v != null && !isNaN(parseFloat(v))) best = parseFloat(v);
+      }
+      return best;
+    }
+    // returns {mifflin, katch, avg, weight, bf} for dateKey, or null
+    function bmrForDay(k) {
+      if (!profileComplete()) return null;
+      const p = state.profile;
+      const weight = lastKnownOn('weight', k);
+      const bf = lastKnownOn('bodyfat', k);
+      if (weight == null) return null;
+      const age = ageOn(k, p.dob);
+      const mif = bmrMifflin(weight, num(p.height), age, p.gender);
+      if (bf == null) return { mifflin: mif, katch: null, avg: mif, weight, bf: null };
+      const kat = bmrKatch(weight, bf);
+      return { mifflin: mif, katch: kat, avg: (mif + kat) / 2, weight, bf };
+    }
+    function activityFactor() {
+      return (ACTIVITY[state.profile.activity] || ACTIVITY.sedentary).f;
+    }
+    function tdeeForDay(k) {
+      const b = bmrForDay(k);
+      return b == null ? null : b.avg * activityFactor();
+    }
+    // total daily burn = TDEE (incl. baseline activity) + logged exercise.
+    // fallback to legacy exercise-only burn when profile incomplete.
+    function effectiveBurn(k) {
+      const d = state.data[k] || blankDay();
+      const t = tdeeForDay(k);
+      const ex = burnTotal(d);
+      return t == null ? ex : t + ex;
+    }
+    function effectiveDeficit(k) {
+      const d = state.data[k] || blankDay();
+      return effectiveBurn(k) - intakeTotal(d);
+    }
 
     /* ============================================================
        RENDER ROUTER
@@ -1483,6 +1731,7 @@
       if (state.tab === 'home') { renderHome(); }
       else if (state.tab === 'record') { state.view === 'day' ? renderDay() : renderList(); }
       else if (state.tab === 'stat') { renderStat(); }
+      else if (state.tab === 'settings') { renderSettings(); }
       else { renderFast(); }
     }
 
@@ -1490,7 +1739,11 @@
     function renderHome() {
       const tk = todayKey();
       const d = getDay(tk);
-      const burn = burnTotal(d), intake = intakeTotal(d), gap = deficit(d);
+      const intake = intakeTotal(d);
+      const burn = Math.round(effectiveBurn(tk));
+      const gap = Math.round(effectiveDeficit(tk));
+      const tdeeToday = tdeeForDay(tk);
+      const bmrToday = bmrForDay(tk);
       const logged = Object.keys(state.data).filter(k => { const x = state.data[k]; return burnTotal(x) > 0 || intakeTotal(x) > 0 || x.weight || x.waist || x.leg || x.bodyfat; }).length;
 
       // fasting status for the home preview
@@ -1531,16 +1784,103 @@
       <div class="ff-de">${canEat ? 'Du darfst jetzt frei essen' : 'Fastenzeit — jetzt nichts essen'}</div>
     </button>
 
-    <div class="backup">
-      <div class="backup-label"># backup &amp; restore · ${logged} day(s) on this device</div>
+    <button class="mod mod-settings" data-go="settings">
+      <div class="mod-top"><span class="mod-no">04</span><span class="mod-name">Settings</span><span class="mod-arrow">→</span></div>
+      <div class="mod-desc">profile · BMR/TDEE · backup &amp; cloud sync</div>
+      ${bmrToday ? `
+      <div class="mod-set-row">
+        <span>BMR <b style="color:var(--blue)">${Math.round(bmrToday.avg)}</b></span>
+        <span>TDEE <b style="color:var(--violet)">${Math.round(tdeeToday)}</b></span>
+        <span>activity <b style="color:var(--fg-bright);font-size:13px">×${activityFactor()}</b></span>
+      </div>` : `
+      <div class="mod-set-row"><span style="color:var(--dim);font-size:10.5px">${profileComplete() ? 'log weight to enable BMR/TDEE' : 'set profile (DOB · height · gender) to enable BMR/TDEE'}</span></div>`}
+    </button>
+  </div>`;
+
+      body.querySelectorAll('.mod').forEach(m => m.addEventListener('click', () => {
+        state.tab = m.dataset.go; if (state.tab === 'record') state.view = 'list'; render();
+      }));
+
+      // tiny sparkline of deficit
+      drawSpark(document.getElementById('homeSpark'));
+    }
+
+    /* ---------- SETTINGS page ---------- */
+    function renderSettings() {
+      const p = state.profile;
+      const tk = todayKey();
+      const age = currentAge();
+      const bmr = bmrForDay(tk);
+      const tdee = tdeeForDay(tk);
+      const logged = Object.keys(state.data).filter(k => { const x = state.data[k]; return burnTotal(x) > 0 || intakeTotal(x) > 0 || x.weight || x.waist || x.leg || x.bodyfat; }).length;
+
+      const actOpts = Object.entries(ACTIVITY)
+        .map(([k, v]) => `<option value="${k}" ${p.activity === k ? 'selected' : ''}>${v.label}</option>`).join('');
+
+      body.innerHTML = `
+  <div class="view show">
+    <h2 class="set-h">Settings</h2>
+    <div class="set-sub">$ profile · energy basis · sync — all local to this device</div>
+
+    <div class="set-card">
+      <div class="set-card-title"># profile</div>
+      <div class="set-row">
+        <div class="set-field">
+          <label>date of birth</label>
+          <input type="date" id="pDob" value="${esc(p.dob)}">
+        </div>
+        <div class="set-field">
+          <label>age</label>
+          <input type="text" value="${age == null ? '—' : age + ' yr'}" readonly>
+        </div>
+      </div>
+      <div class="set-row">
+        <div class="set-field">
+          <label>height · cm</label>
+          <input type="number" id="pHeight" inputmode="decimal" placeholder="—" value="${esc(p.height)}">
+        </div>
+        <div class="set-field">
+          <label>gender</label>
+          <div class="set-seg">
+            <button type="button" data-g="M" class="${p.gender === 'M' ? 'on' : ''}">male</button>
+            <button type="button" data-g="F" class="${p.gender === 'F' ? 'on' : ''}">female</button>
+          </div>
+        </div>
+      </div>
+      <div class="set-row">
+        <div class="set-field">
+          <label>activity factor (non-exercise baseline)</label>
+          <select id="pActivity">${actOpts}</select>
+        </div>
+      </div>
+    </div>
+
+    <div class="set-card">
+      <div class="set-card-title"># today's energy basis</div>
+      <div class="set-energy">
+        <div class="ev"><div class="lab">BMR · Mifflin</div><div class="val">${bmr && bmr.mifflin != null ? Math.round(bmr.mifflin) : '—'}<span class="un">kcal</span></div></div>
+        <div class="ev"><div class="lab">BMR · Katch</div><div class="val">${bmr && bmr.katch != null ? Math.round(bmr.katch) : '—'}<span class="un">kcal</span></div></div>
+        <div class="ev"><div class="lab">BMR · avg</div><div class="val" style="color:var(--blue)">${bmr ? Math.round(bmr.avg) : '—'}<span class="un">kcal</span></div></div>
+      </div>
+      <div class="set-energy" style="margin-top:8px;grid-template-columns:1fr 1fr">
+        <div class="ev"><div class="lab">TDEE = BMR × ${activityFactor()}</div><div class="val" style="color:var(--violet)">${tdee ? Math.round(tdee) : '—'}<span class="un">kcal/day</span></div></div>
+        <div class="ev"><div class="lab">basis · weight / bf%</div><div class="val" style="font-size:14px">${bmr ? `${bmr.weight.toFixed(1)}kg · ${bmr.bf != null ? bmr.bf.toFixed(1) + '%' : 'bf —'}` : '—'}</div></div>
+      </div>
+      <div class="set-note">Mifflin-St Jeor 用身高+体重+年龄+性别；Katch-McArdle 用体脂率算瘦体重。两者平均 → TDEE = 平均 BMR × 活动系数。<br>每日 deficit = TDEE + 运动消耗 − 摄入。</div>
+    </div>
+
+    <div class="set-card">
+      <div class="set-card-title"># backup &amp; restore · ${logged} day(s) on this device</div>
       <div class="backup-btns">
         <button id="btnExport" class="bk-btn">↓ export .json</button>
         <button id="btnImport" class="bk-btn">↑ import .json</button>
       </div>
       <input type="file" id="fileImport" accept="application/json,.json" style="display:none">
-      <div class="backup-note">数据存在本机浏览器；开启 cloud sync 后会自动同步到你的 VPS。</div>
+      <div class="backup-note">数据存在本机浏览器；开启 cloud sync 后会自动同步到你的 VPS。Profile 仅存本机。</div>
+    </div>
 
-      <div class="backup-label" style="margin-top:14px"># cloud sync · <span id="syncStatus">${syncOn() ? 'enabled' : 'off · 点 configure 开启'}</span></div>
+    <div class="set-card">
+      <div class="set-card-title"># cloud sync · <span id="syncStatus">${syncOn() ? 'enabled' : 'off · 点 configure 开启'}</span></div>
       <div class="backup-btns">
         <button id="btnSyncCfg" class="bk-btn">⚙ configure</button>
         <button id="btnSyncNow" class="bk-btn">⟳ sync now</button>
@@ -1548,9 +1888,15 @@
     </div>
   </div>`;
 
-      body.querySelectorAll('.mod').forEach(m => m.addEventListener('click', () => {
-        state.tab = m.dataset.go; if (state.tab === 'record') state.view = 'list'; render();
+      // profile field handlers
+      const refresh = () => { saveProfile(); renderSettings(); };
+      body.querySelector('#pDob').addEventListener('change', e => { state.profile.dob = e.target.value; refresh(); });
+      body.querySelector('#pHeight').addEventListener('input', e => { state.profile.height = e.target.value; saveProfile(); });
+      body.querySelector('#pHeight').addEventListener('blur', () => renderSettings());
+      body.querySelectorAll('.set-seg button').forEach(b => b.addEventListener('click', () => {
+        state.profile.gender = b.dataset.g; refresh();
       }));
+      body.querySelector('#pActivity').addEventListener('change', e => { state.profile.activity = e.target.value; refresh(); });
 
       // backup handlers
       body.querySelector('#btnExport').addEventListener('click', exportData);
@@ -1562,9 +1908,6 @@
       body.querySelector('#btnSyncCfg').addEventListener('click', configureSync);
       body.querySelector('#btnSyncNow').addEventListener('click', pullAndMerge);
       if (syncOn()) setSyncStatus('enabled');
-
-      // tiny sparkline of deficit
-      drawSpark(document.getElementById('homeSpark'));
     }
 
     /* ---------- export / import backup ---------- */
@@ -1608,7 +1951,7 @@
       if (!el) return;
       const keys = sortedKeys().filter(k => { const x = state.data[k]; return burnTotal(x) > 0 || intakeTotal(x) > 0; });
       if (keys.length < 2) { el.innerHTML = `<span class="spark-empty">— log 2+ days to see your deficit trend —</span>`; return; }
-      const vals = keys.map(k => deficit(state.data[k]));
+      const vals = keys.map(k => Math.round(effectiveDeficit(k)));
       const W = 300, H = 34; let mn = Math.min(0, ...vals), mx = Math.max(0, ...vals); if (mn === mx) mx = mn + 1;
       const X = i => (W) * i / (vals.length - 1);
       const Y = v => H * (1 - (v - mn) / (mx - mn));
@@ -1628,7 +1971,7 @@
       const cards = keys.map(k => {
         const d = state.data[k];
         const has = d && (burnTotal(d) > 0 || intakeTotal(d) > 0 || d.weight || d.waist || d.leg || d.bodyfat);
-        const gap = d ? deficit(d) : 0;
+        const gap = d ? Math.round(effectiveDeficit(k)) : 0;
         return `<button class="daycard ${k === tk ? 'today' : ''}" data-k="${k}">
       ${k === tk ? '<span class="badge">TODAY</span>' : `<span class="empty-dot ${has ? 'has-dot' : ''}"></span>`}
       <div class="dd">${weekday(k)}</div>
@@ -1668,7 +2011,10 @@
     /* ---------- RECORD: day detail ---------- */
     function renderDay() {
       const k = state.dayKey; const d = getDay(k);
-      const burn = burnTotal(d), intake = intakeTotal(d), gap = deficit(d);
+      const exBurn = burnTotal(d), intake = intakeTotal(d);
+      const tdee = tdeeForDay(k);
+      const burn = Math.round(effectiveBurn(k));
+      const gap = Math.round(effectiveDeficit(k));
 
       const chips = EXERCISES.map(name => {
         const on = d.exercises.hasOwnProperty(name);
@@ -1718,12 +2064,15 @@
 
     <div class="card">
       <div class="card-h"><span class="ic">∑</span><h3>Energy</h3></div>
+      ${tdee != null ? `<div class="total-row t-burn"><span class="lbl">TDEE · baseline</span><span class="val">${Math.round(tdee)} kcal</span></div>
+      <div class="total-row t-burn"><span class="lbl">exercise burn</span><span class="val">${exBurn} kcal</span></div>` : ''}
       <div class="total-row t-burn"><span class="lbl">total burned</span><span class="val" id="tBurn">${burn} kcal</span></div>
       <div class="total-row t-intake"><span class="lbl">total intake</span><span class="val" id="tIntake">${intake} kcal</span></div>
       <div class="t-gap ${gap >= 0 ? 'deficit' : 'surplus'}" id="gapBox">
         <div class="glabel">calorie ${gap >= 0 ? 'deficit' : 'surplus'}</div>
         <div class="gval" id="gapVal">${gap >= 0 ? '+' : ''}${gap}<span class="gunit"> kcal</span></div>
       </div>
+      ${tdee == null ? '<div class="backup-note" style="margin-top:10px">No profile yet — showing exercise burn only. Set DOB/height/gender in <b>Settings</b> for TDEE-based deficit.</div>' : ''}
     </div>
 
     <div class="card">
@@ -1763,24 +2112,27 @@
       // exercise kcal inputs
       body.querySelectorAll('.ex-cal').forEach(inp => inp.addEventListener('input', () => {
         d.exercises[inp.dataset.ex] = inp.value;
-        recalcDay(d); queueSave(k);
+        recalcDay(k); queueSave(k);
       }));
 
       // meals
       body.querySelectorAll('[data-meal]').forEach(inp => inp.addEventListener('input', () => {
         d.meals[inp.dataset.meal][inp.dataset.f] = inp.value;
-        if (inp.dataset.f === 'cal') recalcDay(d);
+        if (inp.dataset.f === 'cal') recalcDay(k);
         queueSave(k);
       }));
 
-      // body metrics
+      // body metrics — weight/bf changes BMR/TDEE, so re-render fully if profile complete
       body.querySelectorAll('.mi').forEach(inp => inp.addEventListener('input', () => {
         d[inp.dataset.m] = inp.value; queueSave(k);
+        if ((inp.dataset.m === 'weight' || inp.dataset.m === 'bodyfat') && profileComplete()) recalcDay(k);
       }));
     }
 
-    function recalcDay(d) {
-      const burn = burnTotal(d), intake = intakeTotal(d), gap = deficit(d);
+    function recalcDay(k) {
+      const intake = intakeTotal(state.data[k] || blankDay());
+      const burn = Math.round(effectiveBurn(k));
+      const gap = Math.round(effectiveDeficit(k));
       const tb = document.getElementById('tBurn'), ti = document.getElementById('tIntake');
       const gv = document.getElementById('gapVal'), gb = document.getElementById('gapBox');
       if (tb) tb.textContent = burn + ' kcal';
@@ -1812,9 +2164,9 @@
 
       // ---- series ----
       const xs = keys.map((k, i) => i); // ordinal index
-      const burnS = keys.map(k => burnTotal(state.data[k]));
+      const burnS = keys.map(k => Math.round(effectiveBurn(k)));
       const intakeS = keys.map(k => intakeTotal(state.data[k]));
-      const gapS = keys.map(k => deficit(state.data[k]));
+      const gapS = keys.map(k => Math.round(effectiveDeficit(k)));
       const labels = keys.map(k => fmtShort(k));
 
       // body metric series (only points that exist)
@@ -1854,16 +2206,17 @@
     </div>
 
     <div class="chart-card">
-      <div class="chart-title">Prediction · body-fat &amp; waist</div>
-      <div class="chart-note" id="predNote">trend forecast w/ 95% confidence band</div>
+      <div class="chart-title">Prediction · weight &amp; body-fat</div>
+      <div class="chart-note" id="predNote">physics model · weight &amp; fat-mass driven by cumulative deficit</div>
       <div id="chartPred"></div>
       <div class="legend">
+        <span style="color:var(--orange)"><i style="background:var(--orange)"></i>weight kg</span>
+        <span style="color:var(--orange)"><i class="dash" style="color:var(--orange)"></i>forecast</span>
         <span style="color:var(--blue)"><i style="background:var(--blue)"></i>body-fat %</span>
         <span style="color:var(--blue)"><i class="dash" style="color:var(--blue)"></i>forecast</span>
-        <span style="color:var(--teal)"><i style="background:var(--teal)"></i>waist cm</span>
-        <span style="color:var(--teal)"><i class="dash" style="color:var(--teal)"></i>forecast</span>
-        <span style="color:var(--muted)"><i class="band" style="background:var(--muted)"></i>95% CI</span>
+        <span style="color:var(--muted)"><i class="band" style="background:var(--muted)"></i>95% PI</span>
       </div>
+      <div class="chart-note" id="predDiag" style="margin-top:8px;font-size:9.5px;color:var(--dim)"></div>
     </div>
   </div>`;
 
@@ -1880,7 +2233,7 @@
         { pts: bfP, color: 'var(--blue)' }
       ]);
 
-      drawPrediction(document.getElementById('chartPred'), keys, bfP, waistP);
+      drawPrediction(document.getElementById('chartPred'), keys, gapS);
     }
 
     /* ---- chart utilities ---- */
@@ -1988,115 +2341,217 @@
       return t * reg.se * Math.sqrt(1 + 1 / reg.n + ((x0 - reg.xbar) ** 2) / reg.sxx);
     }
 
-    function drawPrediction(el, keys, bfP, waistP) {
-      const W = 496, H = 210, padL = 36, padR = 44, padT = 16, padB = 26;
+    /*
+      Physics-based forecast (no collinearity by construction):
+        1) Cumulative deficit C_i = Σ daily_deficit (TDEE+exercise − intake).
+        2) Weight OLS:   weight  ~ a_w + b_w · C   (one predictor)
+        3) Fat-mass OLS: fatmass ~ a_f + b_f · C   (one predictor)
+           where fatmass_i = weight_i * bf%_i / 100
+        4) Body-fat % is derived as fatmass_hat / weight_hat * 100 (deterministic,
+           not a separate regression — keeps the two models physically coherent
+           and avoids using bf% itself as a predictor of weight).
+        5) Future C extrapolated using mean of recent daily deficits.
+        Theory says slope ≈ −1/7700 kg per kcal; the fit measures the user's
+        actual energy-to-mass conversion.
+    */
+    function drawPrediction(el, keys, dailyDef) {
+      const W = 496, H = 210, padL = 38, padR = 44, padT = 16, padB = 26;
       const n = keys.length;
-      const FUTURE = Math.max(2, Math.round(n * 0.4)); // forecast horizon
-      const totalX = n - 1 + FUTURE;
-      const X = i => padL + (W - padL - padR) * (totalX <= 0 ? 0.5 : i / totalX);
-
       const note = document.getElementById('predNote');
-      const haveBF = bfP.length >= 2, haveW = waistP.length >= 2;
-      if (!haveBF && !haveW) {
-        el.innerHTML = `<div class="empty-state" style="padding:18px">need ≥2 body-fat or waist entries<br>to fit a trend.</div>`;
+      const diag = document.getElementById('predDiag');
+
+      // cumulative deficit by ordinal day index
+      const cum = []; let s = 0;
+      for (let i = 0; i < n; i++) { s += dailyDef[i] || 0; cum[i] = s; }
+
+      // weight and fat-mass series in (cumDef, value) space
+      const weightPts = [], fatmassPts = [];
+      keys.forEach((k, i) => {
+        const w = num(state.data[k].weight);
+        const bf = num(state.data[k].bodyfat);
+        const hasW = state.data[k].weight !== '' && !isNaN(parseFloat(state.data[k].weight));
+        const hasBF = state.data[k].bodyfat !== '' && !isNaN(parseFloat(state.data[k].bodyfat));
+        if (hasW) weightPts.push([cum[i], w, i]);
+        if (hasW && hasBF) fatmassPts.push([cum[i], w * bf / 100, i]);
+      });
+
+      if (weightPts.length < 2 && fatmassPts.length < 2) {
+        el.innerHTML = `<div class="empty-state" style="padding:18px">need ≥2 days with weight (+body-fat)<br>to fit the physics model.</div>`;
         if (note) note.textContent = 'not enough data points for a forecast';
+        if (diag) diag.textContent = '';
         return;
       }
 
-      // build a forecast block for one metric
-      function build(pts, color, axisSide) {
-        if (pts.length < 2) return null;
-        const reg = linreg(pts);
-        const lastX = pts[pts.length - 1][0];
-        // forecast points across observed + future
-        const fc = []; const bandTop = [], bandBot = [];
+      // mean recent daily deficit for forward extrapolation of C
+      const recentN = Math.min(7, n);
+      const recent = dailyDef.slice(-recentN).filter(v => Number.isFinite(v));
+      const avgDef = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : 0;
+
+      const FUTURE = Math.max(2, Math.round(n * 0.4));
+      const totalX = n - 1 + FUTURE;
+      const X = i => padL + (W - padL - padR) * (totalX <= 0 ? 0.5 : i / totalX);
+
+      // cumDef value at any (possibly future) day index
+      function cumAt(i) {
+        if (i < n) return cum[i];
+        return cum[n - 1] + avgDef * (i - (n - 1));
+      }
+
+      // regress (cumDef → y); for each point we also stored its day index for plotting
+      function regOf(pts) {
+        // pts: [[x=cumDef, y, dayIdx], ...]
+        const xy = pts.map(p => [p[0], p[1]]);
+        return linreg(xy);
+      }
+      const wReg = weightPts.length >= 2 ? regOf(weightPts) : null;
+      const fReg = fatmassPts.length >= 2 ? regOf(fatmassPts) : null;
+
+      // build forecast over the full day axis (observed + future)
+      function forecast(reg) {
+        if (!reg) return null;
+        const yhat = [], top = [], bot = [];
         for (let i = 0; i <= totalX; i++) {
-          const yhat = reg.a + reg.b * i;
-          fc.push([i, yhat]);
-          if (i >= lastX) {
-            const h = predHalf(reg, i);
-            bandTop.push([i, yhat + h]); bandBot.push([i, yhat - h]);
+          const x = cumAt(i);
+          const y = reg.a + reg.b * x;
+          yhat.push([i, y]);
+          const h = predHalf(reg, x);
+          top.push([i, y + h]); bot.push([i, y - h]);
+        }
+        return { reg, yhat, top, bot };
+      }
+      const wF = forecast(wReg);
+      const fF = forecast(fReg);
+
+      // body-fat % series and forecast: derived = fatmass / weight * 100
+      const bfObserved = [];
+      keys.forEach((k, i) => {
+        const hasW = state.data[k].weight !== '' && !isNaN(parseFloat(state.data[k].weight));
+        const hasBF = state.data[k].bodyfat !== '' && !isNaN(parseFloat(state.data[k].bodyfat));
+        if (hasW && hasBF) bfObserved.push([i, num(state.data[k].bodyfat)]);
+      });
+      let bfF = null;
+      if (wF && fF) {
+        const bfHat = [], bfTop = [], bfBot = [];
+        for (let i = 0; i <= totalX; i++) {
+          const wh = wF.yhat[i][1];
+          const fh = fF.yhat[i][1];
+          if (wh > 0 && fh >= 0) {
+            const y = (fh / wh) * 100;
+            bfHat.push([i, y]);
+            // approximate band: scale fatmass half-width by 1/wh (weight error contributes far less in % terms)
+            const h = (fF.top[i][1] - fh) / wh * 100;
+            bfTop.push([i, y + h]); bfBot.push([i, y - h]);
           }
         }
-        const nextY = reg.a + reg.b * totalX;
-        return { reg, fc, bandTop, bandBot, pts, color, nextY, trend: reg.b };
+        bfF = { yhat: bfHat, top: bfTop, bot: bfBot };
       }
-      const bf = haveBF ? build(bfP, 'var(--blue)') : null;
-      const wa = haveW ? build(waistP, 'var(--teal)') : null;
 
-      // combined y-range
-      function rangeOf(blk) { const ys = blk.pts.map(p => p[1]).concat(blk.fc.map(p => p[1])).concat(blk.bandTop.map(p => p[1]), blk.bandBot.map(p => p[1])); return [Math.min(...ys), Math.max(...ys)]; }
-      // separate vertical scales: bf on left, waist on right (different units)
+      // ---- draw ----
       let svg = svgEl(W, H);
       svg += gridLines(W, H, padL, padR, padT, padB, 0, 4);
-      // "now" divider
       const nowx = X(n - 1);
       svg += `<line x1="${nowx}" y1="${padT}" x2="${nowx}" y2="${H - padB}" stroke="var(--line-2)" stroke-width="1" stroke-dasharray="3 3"/>`;
       svg += `<text x="${nowx}" y="${padT - 4}" text-anchor="middle" font-size="7.5" fill="var(--dim)" font-family="var(--mono)">now</text>`;
 
-      function plotBlock(blk, scale) {
-        if (!blk) return '';
-        const [mn, mx] = scale;
+      // build display blocks: weight on left axis (orange), bf% on right axis (blue)
+      const blocks = [];
+      if (wF) {
+        const obsPts = weightPts.map(p => [p[2], p[1]]); // [dayIdx, weight]
+        blocks.push({ axis: 'L', color: 'var(--orange)', obs: obsPts, yhat: wF.yhat, top: wF.top, bot: wF.bot, unit: 'kg' });
+      }
+      if (bfF) {
+        blocks.push({ axis: 'R', color: 'var(--blue)', obs: bfObserved, yhat: bfF.yhat, top: bfF.top, bot: bfF.bot, unit: '%' });
+      }
+
+      function scaleOf(b) {
+        const ys = b.obs.map(p => p[1])
+          .concat(b.yhat.map(p => p[1]))
+          .concat(b.top.map(p => p[1]))
+          .concat(b.bot.map(p => p[1]));
+        let mn = Math.min(...ys), mx = Math.max(...ys);
+        if (!isFinite(mn) || !isFinite(mx) || mn === mx) { mn -= 1; mx += 1; }
+        const pad = (mx - mn) * 0.18; return [mn - pad, mx + pad];
+      }
+      blocks.forEach(b => b.scale = scaleOf(b));
+
+      function plotBlock(b) {
+        const [mn, mx] = b.scale;
         const Y = v => padT + (H - padT - padB) * (1 - (v - mn) / ((mx - mn) || 1));
         let s = '';
-        // CI band (polygon)
-        if (blk.bandTop.length > 1) {
-          const top = blk.bandTop.map(p => [X(p[0]), Y(p[1])]);
-          const bot = blk.bandBot.map(p => [X(p[0]), Y(p[1])]).reverse();
-          const dpath = top.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ') +
-            ' ' + bot.map(p => 'L' + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ') + ' Z';
-          s += `<path d="${dpath}" fill="${blk.color}" opacity="0.13" stroke="none"/>`;
+        // 95% PI band over future portion only
+        const futTop = b.top.filter(p => p[0] >= n - 1).map(p => [X(p[0]), Y(p[1])]);
+        const futBot = b.bot.filter(p => p[0] >= n - 1).map(p => [X(p[0]), Y(p[1])]).reverse();
+        if (futTop.length > 1) {
+          const dpath = futTop.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ') +
+            ' ' + futBot.map(p => 'L' + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ') + ' Z';
+          s += `<path d="${dpath}" fill="${b.color}" opacity="0.13" stroke="none"/>`;
         }
-        // forecast dashed (from last obs onward) + fitted solid over observed
-        const lastX = blk.pts[blk.pts.length - 1][0];
-        const obsPart = blk.fc.filter(p => p[0] <= lastX).map(p => [X(p[0]), Y(p[1])]);
-        const futPart = blk.fc.filter(p => p[0] >= lastX).map(p => [X(p[0]), Y(p[1])]);
-        s += poly(obsPart, blk.color, 1.6, false);
-        s += poly(futPart, blk.color, 1.8, true);
-        // actual data points
-        const dp = blk.pts.map(p => [X(p[0]), Y(p[1])]);
-        s += dots(dp, blk.color, 3);
-        // endpoint forecast label
-        const ey = Y(blk.nextY);
-        s += `<circle cx="${X(blk.fc[blk.fc.length - 1][0]).toFixed(1)}" cy="${ey.toFixed(1)}" r="3" fill="${blk.color}" opacity="0.5"/>`;
+        // fitted line over observed (solid) + future (dashed)
+        const obsLine = b.yhat.filter(p => p[0] <= n - 1).map(p => [X(p[0]), Y(p[1])]);
+        const futLine = b.yhat.filter(p => p[0] >= n - 1).map(p => [X(p[0]), Y(p[1])]);
+        s += poly(obsLine, b.color, 1.6, false);
+        s += poly(futLine, b.color, 1.8, true);
+        // observed points
+        const dp = b.obs.map(p => [X(p[0]), Y(p[1])]);
+        s += dots(dp, b.color, 3);
+        // endpoint forecast dot
+        const endP = b.yhat[b.yhat.length - 1];
+        s += `<circle cx="${X(endP[0]).toFixed(1)}" cy="${Y(endP[1]).toFixed(1)}" r="3" fill="${b.color}" opacity="0.55"/>`;
         return s;
       }
+      blocks.forEach(b => { svg += plotBlock(b); });
 
-      let bfScale = null, waScale = null;
-      if (bf) { bfScale = rangeOf(bf); const pad = (bfScale[1] - bfScale[0]) * 0.18 || 1; bfScale = [bfScale[0] - pad, bfScale[1] + pad]; }
-      if (wa) { waScale = rangeOf(wa); const pad = (waScale[1] - waScale[0]) * 0.18 || 1; waScale = [waScale[0] - pad, waScale[1] + pad]; }
-
-      if (bf) svg += plotBlock(bf, bfScale);
-      if (wa) svg += plotBlock(wa, waScale);
-
-      // left axis labels (bf, blue)
-      if (bf) {
+      // axis labels — left = first block w/ axis L, right = first w/ axis R
+      const left = blocks.find(b => b.axis === 'L');
+      const right = blocks.find(b => b.axis === 'R');
+      if (left) {
         for (let i = 0; i <= 4; i++) {
-          const v = bfScale[1] - (bfScale[1] - bfScale[0]) * i / 4; const y = padT + (H - padT - padB) * i / 4;
-          svg += `<text x="${padL - 5}" y="${y + 3}" text-anchor="end" font-size="7.5" fill="var(--blue)" font-family="var(--mono)">${v.toFixed(1)}</text>`;
+          const v = left.scale[1] - (left.scale[1] - left.scale[0]) * i / 4;
+          const y = padT + (H - padT - padB) * i / 4;
+          svg += `<text x="${padL - 5}" y="${y + 3}" text-anchor="end" font-size="7.5" fill="${left.color}" font-family="var(--mono)">${v.toFixed(1)}</text>`;
         }
       }
-      // right axis (waist, teal)
-      if (wa) {
+      if (right) {
         for (let i = 0; i <= 4; i++) {
-          const v = waScale[1] - (waScale[1] - waScale[0]) * i / 4; const y = padT + (H - padT - padB) * i / 4;
-          svg += `<text x="${W - padR + 5}" y="${y + 3}" text-anchor="start" font-size="7.5" fill="var(--teal)" font-family="var(--mono)">${v.toFixed(1)}</text>`;
+          const v = right.scale[1] - (right.scale[1] - right.scale[0]) * i / 4;
+          const y = padT + (H - padT - padB) * i / 4;
+          svg += `<text x="${W - padR + 5}" y="${y + 3}" text-anchor="start" font-size="7.5" fill="${right.color}" font-family="var(--mono)">${v.toFixed(1)}</text>`;
         }
       }
 
       // x labels
-      const allLabels = keys.map(k => fmtShort(k));
-      const step = Math.ceil((n) / 5);
-      allLabels.forEach((lb, i) => { if (i % step === 0 || i === n - 1) { svg += `<text x="${X(i)}" y="${H - 8}" text-anchor="middle" font-size="7.5" fill="var(--dim)" font-family="var(--mono)">${lb}</text>`; } });
+      const step = Math.max(1, Math.ceil(n / 5));
+      keys.forEach((k, i) => {
+        if (i % step === 0 || i === n - 1) {
+          svg += `<text x="${X(i)}" y="${H - 8}" text-anchor="middle" font-size="7.5" fill="var(--dim)" font-family="var(--mono)">${fmtShort(k)}</text>`;
+        }
+      });
       svg += `<text x="${X(totalX)}" y="${H - 8}" text-anchor="end" font-size="7.5" fill="var(--dim)" font-family="var(--mono)">+${FUTURE}d</text>`;
       svg += '</svg>';
       el.innerHTML = svg;
 
-      // forecast summary note
-      let parts = [];
-      if (bf) { const dir = bf.trend < 0 ? '↓' : bf.trend > 0 ? '↑' : '→'; parts.push(`body-fat ${dir} ~${bf.nextY.toFixed(1)}% in +${FUTURE}d`); }
-      if (wa) { const dir = wa.trend < 0 ? '↓' : wa.trend > 0 ? '↑' : '→'; parts.push(`waist ${dir} ~${wa.nextY.toFixed(1)}cm`); }
-      if (note) note.textContent = 'OLS trend · 95% prediction band · ' + parts.join(' · ');
+      // summary note + diagnostics
+      const parts = [];
+      if (wF) {
+        const yEnd = wF.yhat[totalX][1];
+        const dir = wReg.b < 0 ? '↓' : wReg.b > 0 ? '↑' : '→';
+        parts.push(`weight ${dir} ~${yEnd.toFixed(1)}kg in +${FUTURE}d`);
+      }
+      if (bfF && bfF.yhat.length) {
+        const yEnd = bfF.yhat[bfF.yhat.length - 1][1];
+        const yNow = bfF.yhat[Math.min(n - 1, bfF.yhat.length - 1)][1];
+        const dir = yEnd < yNow ? '↓' : yEnd > yNow ? '↑' : '→';
+        parts.push(`body-fat ${dir} ~${yEnd.toFixed(1)}%`);
+      }
+      if (note) note.textContent = 'physics OLS · 95% PI · avg daily deficit ' + (avgDef >= 0 ? '+' : '') + Math.round(avgDef) + ' kcal · ' + parts.join(' · ');
+
+      // diagnostics: measured kcal-per-kg (1 / |slope|)
+      if (diag) {
+        const dParts = [];
+        if (wReg && wReg.b !== 0) dParts.push(`weight: ${Math.round(-1 / wReg.b).toLocaleString()} kcal / kg measured (theory ≈ 7,700)`);
+        if (fReg && fReg.b !== 0) dParts.push(`fat-mass: ${Math.round(-1 / fReg.b).toLocaleString()} kcal / kg measured (theory ≈ 9,000)`);
+        diag.textContent = dParts.join(' · ');
+      }
     }
 
     /* ============================================================
