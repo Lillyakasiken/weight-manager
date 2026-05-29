@@ -12,11 +12,6 @@
   <link rel="manifest" href="manifest.json" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="body.manager" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Serif+Display:ital@0;1&display=swap"
-    rel="stylesheet">
   <style>
     /* ╔══════════════════════════════════════════════════════════╗
      ║  🎨  COLOR PANEL — 在这里改颜色，全 app 都会跟着变            ║
@@ -1893,12 +1888,26 @@
   </div>`;
 
       // profile field handlers
-      const refresh = () => { saveProfile(); renderSettings(); };
-      body.querySelector('#pDob').addEventListener('change', e => { state.profile.dob = e.target.value; refresh(); });
-      body.querySelector('#pHeight').addEventListener('input', e => { state.profile.height = e.target.value; saveProfile(); });
-      body.querySelector('#pHeight').addEventListener('blur', () => renderSettings());
+      // NOTE: never re-render synchronously while iOS pickers/keyboard are still on screen —
+      // on standalone PWAs (iOS 17+) that wedges the scroll container. Save immediately,
+      // then defer the full re-render so the picker can dismiss cleanly first.
+      let rerenderTimer = null;
+      const scheduleRerender = () => {
+        clearTimeout(rerenderTimer);
+        rerenderTimer = setTimeout(() => { if (state.tab === 'settings') renderSettings(); }, 300);
+      };
+      body.querySelector('#pDob').addEventListener('change', e => {
+        state.profile.dob = e.target.value; saveProfile(); scheduleRerender();
+      });
+      body.querySelector('#pHeight').addEventListener('input', e => {
+        state.profile.height = e.target.value; saveProfile();
+      });
+      body.querySelector('#pHeight').addEventListener('blur', scheduleRerender);
       body.querySelectorAll('.set-seg button').forEach(b => b.addEventListener('click', () => {
-        state.profile.gender = b.dataset.g; refresh();
+        state.profile.gender = b.dataset.g;
+        body.querySelectorAll('.set-seg button').forEach(x => x.classList.toggle('on', x.dataset.g === state.profile.gender));
+        saveProfile();
+        scheduleRerender();
       }));
 
       // backup handlers
