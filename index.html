@@ -2659,24 +2659,50 @@
       render();
     }));
 
+    // surface JS errors on screen instead of letting iOS standalone PWAs go pure-white
+    function showFatalError(msg) {
+      const el = document.getElementById('loading');
+      if (!el) return;
+      el.classList.remove('hide');
+      el.style.background = '#fff';
+      el.style.color = '#c25d4f';
+      el.style.padding = '24px';
+      el.style.fontSize = '12px';
+      el.style.whiteSpace = 'pre-wrap';
+      el.style.alignItems = 'flex-start';
+      el.style.justifyContent = 'flex-start';
+      el.style.overflow = 'auto';
+      el.textContent = 'error · 请截图发给开发者\n\n' + msg;
+    }
+    window.addEventListener('error', e => {
+      showFatalError((e.message || 'unknown') + '\n' + (e.filename || '') + ':' + (e.lineno || '') + ':' + (e.colno || ''));
+    });
+    window.addEventListener('unhandledrejection', e => {
+      showFatalError('promise: ' + (e.reason && (e.reason.stack || e.reason.message) || e.reason));
+    });
+
     (function init() {
-      // if localStorage is unavailable (rare private-mode), fall back to in-memory
-      try { localStorage.setItem('__test__', '1'); localStorage.removeItem('__test__'); }
-      catch (e) {
-        const mem = {};
-        window.localStorage = {
-          getItem: k => mem[k] ?? null,
-          setItem: (k, v) => { mem[k] = String(v); },
-          removeItem: k => { delete mem[k]; }
-        };
-        toast('本机存储不可用 · 仅本次有效');
+      try {
+        // if localStorage is unavailable (rare private-mode), fall back to in-memory
+        try { localStorage.setItem('__test__', '1'); localStorage.removeItem('__test__'); }
+        catch (e) {
+          const mem = {};
+          window.localStorage = {
+            getItem: k => mem[k] ?? null,
+            setItem: (k, v) => { mem[k] = String(v); },
+            removeItem: k => { delete mem[k]; }
+          };
+          toast('本机存储不可用 · 仅本次有效');
+        }
+        loadAll();
+        getDay(todayKey());
+        render();
+        document.getElementById('loading').classList.add('hide');
+        // refresh from your VPS in the background (no-op if sync not configured)
+        pullAndMerge();
+      } catch (err) {
+        showFatalError((err && (err.stack || err.message)) || String(err));
       }
-      loadAll();
-      getDay(todayKey());
-      document.getElementById('loading').classList.add('hide');
-      render();
-      // refresh from your VPS in the background (no-op if sync not configured)
-      pullAndMerge();
     })();
   </script>
 </body>
