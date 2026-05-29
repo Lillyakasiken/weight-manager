@@ -1491,7 +1491,7 @@
       view: 'list',          // list | day
       dayKey: null,
       data: {},              // { 'YYYY-MM-DD': {...} }
-      profile: {             // local-only; per device
+      profile: {             // synced via cloud sync when enabled; last-write-wins by _t
         dob: '',             // 'YYYY-MM-DD'
         height: '',          // cm
         gender: '',          // 'M' | 'F'
@@ -1545,8 +1545,10 @@
       } catch (e) { console.log('profile load error', e); }
     }
     function saveProfile() {
+      state.profile._t = Date.now();
       try { localStorage.setItem(PROFILE_KEY, JSON.stringify(state.profile)); }
       catch (e) { console.log('profile save error', e); }
+      queuePush();
     }
     let saveTimer = null;
     function queueSave(k) {
@@ -1604,7 +1606,7 @@
         const r = await fetch(c.url, {
           method: 'PUT',
           headers: { Authorization: 'Bearer ' + c.token, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: state.data })
+          body: JSON.stringify({ data: state.data, profile: state.profile })
         });
         if (r.status === 401) { setSyncStatus('云端拒绝 · 检查 token'); return; }
         if (!r.ok) throw new Error('http ' + r.status);
@@ -1622,12 +1624,20 @@
         if (!r.ok) throw new Error('http ' + r.status);
         const j = await r.json();
         const server = (j && j.data) || {};
+        const serverProfile = (j && j.profile) || null;
         const before = JSON.stringify(state.data);
+        const beforeProfile = JSON.stringify(state.profile);
         state.data = mergeData(state.data, server);
         saveLocal();
-        const changed = JSON.stringify(state.data) !== before;
-        // if our local copy had days the server lacked (or newer), push the merge back
-        if (JSON.stringify(state.data) !== JSON.stringify(server)) await pushNow();
+        // profile: last-write-wins by _t; server only takes over if strictly newer
+        if (serverProfile && (serverProfile._t || 0) > (state.profile._t || 0)) {
+          state.profile = Object.assign({ dob: '', height: '', gender: '', activity: 'sedentary' }, serverProfile);
+          try { localStorage.setItem(PROFILE_KEY, JSON.stringify(state.profile)); } catch (e) {}
+        }
+        const changed = JSON.stringify(state.data) !== before || JSON.stringify(state.profile) !== beforeProfile;
+        // if our local copy had days the server lacked (or newer), or our profile is newer, push back
+        const localProfileNewer = !serverProfile || (state.profile._t || 0) > (serverProfile._t || 0);
+        if (JSON.stringify(state.data) !== JSON.stringify(server) || localProfileNewer) await pushNow();
         if (changed) render();
         setSyncStatus('已同步 · ' + new Date().toLocaleTimeString());
       } catch (e) { setSyncStatus('离线 · 使用本机数据'); }
@@ -1876,7 +1886,7 @@
         <button id="btnImport" class="bk-btn">↑ import .json</button>
       </div>
       <input type="file" id="fileImport" accept="application/json,.json" style="display:none">
-      <div class="backup-note">数据存在本机浏览器；开启 cloud sync 后会自动同步到你的 VPS。Profile 仅存本机。</div>
+      <div class="backup-note">数据存在本机浏览器；开启 cloud sync 后会自动同步到你的 VPS（含 profile）。</div>
     </div>
 
     <div class="set-card">
