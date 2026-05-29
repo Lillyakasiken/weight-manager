@@ -1528,6 +1528,32 @@
     }
     function getDay(k) { if (!state.data[k]) state.data[k] = blankDay(); return state.data[k]; }
 
+    // server payloads from older app versions (or partial writes) may miss fields;
+    // backfill against blankDay() so downstream code can trust the shape.
+    function normalizeDay(d) {
+      const base = blankDay();
+      if (!d || typeof d !== 'object') return base;
+      const meals = d.meals && typeof d.meals === 'object' ? d.meals : {};
+      return {
+        exercises: d.exercises && typeof d.exercises === 'object' ? d.exercises : base.exercises,
+        meals: {
+          breakfast: Object.assign({}, base.meals.breakfast, meals.breakfast),
+          lunch:     Object.assign({}, base.meals.lunch,     meals.lunch),
+          dinner:    Object.assign({}, base.meals.dinner,    meals.dinner),
+        },
+        weight:  d.weight  ?? '',
+        waist:   d.waist   ?? '',
+        leg:     d.leg     ?? '',
+        bodyfat: d.bodyfat ?? '',
+        _t:      d._t,
+      };
+    }
+    function normalizeAll(data) {
+      const out = {};
+      for (const k in data) out[k] = normalizeDay(data[k]);
+      return out;
+    }
+
     /* ---------- persistence (localStorage — works on GitHub Pages & phone) ---------- */
     const STORE_KEY = 'fasting16_8_data_v1';   // 所有数据存在这一个键里
     const PROFILE_KEY = 'fasting16_8_profile_v1'; // 本机配置（身高/性别/出生日）
@@ -1535,7 +1561,7 @@
     function loadAll() {
       try {
         const raw = localStorage.getItem(STORE_KEY);
-        if (raw) { state.data = JSON.parse(raw) || {}; }
+        if (raw) { state.data = normalizeAll(JSON.parse(raw) || {}); }
       } catch (e) { console.log('load error', e); state.data = {}; }
       try {
         const rawP = localStorage.getItem(PROFILE_KEY);
@@ -1588,7 +1614,7 @@
       const out = { ...local };
       for (const k in server) {
         const tl = (local[k] && local[k]._t) || 0, ts = (server[k] && server[k]._t) || 0;
-        if (!(k in out) || ts >= tl) out[k] = server[k];   // server day is newer/equal → take it
+        if (!(k in out) || ts >= tl) out[k] = normalizeDay(server[k]);   // server day is newer/equal → take it
       }
       return out;
     }
