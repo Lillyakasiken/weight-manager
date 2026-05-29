@@ -32,7 +32,7 @@
       /* 卡片底色 (card background) */
       --panel-2: #EBF7FF;
       /* 卡片内小块底色 (inner chips/metrics) */
-      --line: #CCCCCC;
+      --line: #ffffff;
       /* 边框线 (borders) */
       --line-2: #749FC2;
       /* 深一点的边框 / 坐标轴 (darker lines) */
@@ -538,7 +538,8 @@
     }
 
     .set-row .set-field {
-      flex: 1;
+      flex: 1 1 0;
+      min-width: 0;
       display: flex;
       flex-direction: column;
       gap: 4px;
@@ -1494,19 +1495,14 @@
       profile: {             // synced via cloud sync when enabled; last-write-wins by _t
         dob: '',             // 'YYYY-MM-DD'
         height: '',          // cm
-        gender: '',          // 'M' | 'F'
-        activity: 'sedentary'// sedentary | light | moderate | active | very
+        gender: ''           // 'M' | 'F'
       },
       demoNow: null,         // for ?t=HHmm preview of fasting clock
     };
 
-    const ACTIVITY = {
-      sedentary: { f: 1.2, label: 'sedentary · little exercise' },
-      light: { f: 1.375, label: 'light · 1–3 d/wk' },
-      moderate: { f: 1.55, label: 'moderate · 3–5 d/wk' },
-      active: { f: 1.725, label: 'active · 6–7 d/wk' },
-      very: { f: 1.9, label: 'very active · 2× per day' }
-    };
+    // Fixed baseline: BMR × 1.2 covers basal + NEAT (everyday non-exercise movement).
+    // Logged exercise is added on top in effectiveBurn() — no risk of double-counting.
+    const BASELINE_FACTOR = 1.2;
 
     const body = document.getElementById('body');
     const toastEl = document.getElementById('toast');
@@ -1532,7 +1528,7 @@
 
     /* ---------- persistence (localStorage — works on GitHub Pages & phone) ---------- */
     const STORE_KEY = 'fasting16_8_data_v1';   // 所有数据存在这一个键里
-    const PROFILE_KEY = 'fasting16_8_profile_v1'; // 本机配置（身高/性别/出生日/活动量）
+    const PROFILE_KEY = 'fasting16_8_profile_v1'; // 本机配置（身高/性别/出生日）
 
     function loadAll() {
       try {
@@ -1631,8 +1627,8 @@
         saveLocal();
         // profile: last-write-wins by _t; server only takes over if strictly newer
         if (serverProfile && (serverProfile._t || 0) > (state.profile._t || 0)) {
-          state.profile = Object.assign({ dob: '', height: '', gender: '', activity: 'sedentary' }, serverProfile);
-          try { localStorage.setItem(PROFILE_KEY, JSON.stringify(state.profile)); } catch (e) {}
+          state.profile = Object.assign({ dob: '', height: '', gender: '' }, serverProfile);
+          try { localStorage.setItem(PROFILE_KEY, JSON.stringify(state.profile)); } catch (e) { }
         }
         const changed = JSON.stringify(state.data) !== before || JSON.stringify(state.profile) !== beforeProfile;
         // if our local copy had days the server lacked (or newer), or our profile is newer, push back
@@ -1713,13 +1709,13 @@
       return { mifflin: mif, katch: kat, avg: (mif + kat) / 2, weight, bf };
     }
     function activityFactor() {
-      return (ACTIVITY[state.profile.activity] || ACTIVITY.sedentary).f;
+      return BASELINE_FACTOR;
     }
     function tdeeForDay(k) {
       const b = bmrForDay(k);
       return b == null ? null : b.avg * activityFactor();
     }
-    // total daily burn = TDEE (incl. baseline activity) + logged exercise.
+    // total daily burn = baseline (BMR × 1.2, covers basal + NEAT) + logged exercise.
     // fallback to legacy exercise-only burn when profile incomplete.
     function effectiveBurn(k) {
       const d = state.data[k] || blankDay();
@@ -1800,8 +1796,7 @@
       ${bmrToday ? `
       <div class="mod-set-row">
         <span>BMR <b style="color:var(--blue)">${Math.round(bmrToday.avg)}</b></span>
-        <span>TDEE <b style="color:var(--violet)">${Math.round(tdeeToday)}</b></span>
-        <span>activity <b style="color:var(--fg-bright);font-size:13px">×${activityFactor()}</b></span>
+        <span>baseline <b style="color:var(--violet)">${Math.round(tdeeToday)}</b></span>
       </div>` : `
       <div class="mod-set-row"><span style="color:var(--dim);font-size:10.5px">${profileComplete() ? 'log weight to enable BMR/TDEE' : 'set profile (DOB · height · gender) to enable BMR/TDEE'}</span></div>`}
     </button>
@@ -1823,9 +1818,6 @@
       const bmr = bmrForDay(tk);
       const tdee = tdeeForDay(tk);
       const logged = Object.keys(state.data).filter(k => { const x = state.data[k]; return burnTotal(x) > 0 || intakeTotal(x) > 0 || x.weight || x.waist || x.leg || x.bodyfat; }).length;
-
-      const actOpts = Object.entries(ACTIVITY)
-        .map(([k, v]) => `<option value="${k}" ${p.activity === k ? 'selected' : ''}>${v.label}</option>`).join('');
 
       body.innerHTML = `
   <div class="view show">
@@ -1857,12 +1849,7 @@
           </div>
         </div>
       </div>
-      <div class="set-row">
-        <div class="set-field">
-          <label>activity factor (non-exercise baseline)</label>
-          <select id="pActivity">${actOpts}</select>
-        </div>
-      </div>
+      <div class="set-note">baseline × ${BASELINE_FACTOR}（基础代谢 + 日常非运动消耗 / NEAT）。刻意运动单独在「每日记录」里登记。</div>
     </div>
 
     <div class="set-card">
@@ -1873,10 +1860,10 @@
         <div class="ev"><div class="lab">BMR · avg</div><div class="val" style="color:var(--blue)">${bmr ? Math.round(bmr.avg) : '—'}<span class="un">kcal</span></div></div>
       </div>
       <div class="set-energy" style="margin-top:8px;grid-template-columns:1fr 1fr">
-        <div class="ev"><div class="lab">TDEE = BMR × ${activityFactor()}</div><div class="val" style="color:var(--violet)">${tdee ? Math.round(tdee) : '—'}<span class="un">kcal/day</span></div></div>
+        <div class="ev"><div class="lab">baseline = BMR × ${BASELINE_FACTOR}</div><div class="val" style="color:var(--violet)">${tdee ? Math.round(tdee) : '—'}<span class="un">kcal/day</span></div></div>
         <div class="ev"><div class="lab">basis · weight / bf%</div><div class="val" style="font-size:14px">${bmr ? `${bmr.weight.toFixed(1)}kg · ${bmr.bf != null ? bmr.bf.toFixed(1) + '%' : 'bf —'}` : '—'}</div></div>
       </div>
-      <div class="set-note">Mifflin-St Jeor 用身高+体重+年龄+性别；Katch-McArdle 用体脂率算瘦体重。两者平均 → TDEE = 平均 BMR × 活动系数。<br>每日 deficit = TDEE + 运动消耗 − 摄入。</div>
+      <div class="set-note">Mifflin-St Jeor 用身高+体重+年龄+性别；Katch-McArdle 用体脂率算瘦体重。两者平均 → baseline = 平均 BMR × ${BASELINE_FACTOR}（含日常 NEAT，不含刻意运动）。<br>每日 deficit = baseline + 运动消耗 − 摄入。</div>
     </div>
 
     <div class="set-card">
@@ -1906,7 +1893,6 @@
       body.querySelectorAll('.set-seg button').forEach(b => b.addEventListener('click', () => {
         state.profile.gender = b.dataset.g; refresh();
       }));
-      body.querySelector('#pActivity').addEventListener('change', e => { state.profile.activity = e.target.value; refresh(); });
 
       // backup handlers
       body.querySelector('#btnExport').addEventListener('click', exportData);
