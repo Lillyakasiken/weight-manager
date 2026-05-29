@@ -28,7 +28,7 @@
       /* 主背景 / 输入框底色 (page background) */
       --bg-2: #ffffff;
       /* 次级背景 (rarely seen) */
-      --panel: #E8E8E8;
+      --panel: #F5F5F5;
       /* 卡片底色 (card background) */
       --panel-2: #EBF7FF;
       /* 卡片内小块底色 (inner chips/metrics) */
@@ -709,7 +709,7 @@
     }
 
     .daycard.today {
-      border-color: var(--green-soft);
+      border-color: transparent;
       background: var(--green-soft);
     }
 
@@ -1343,13 +1343,13 @@
 
     .fast-msg.eat {
       background: var(--green-soft);
-      border-color: rgba(63, 185, 80, .4);
+      border-color: transparent;
       color: var(--green);
     }
 
     .fast-msg.fast {
       background: var(--red-soft);
-      border-color: var(--red-soft);
+      border-color: transparent;
       color: var(--red);
     }
 
@@ -2243,7 +2243,7 @@
     function svgEl(w, h) { return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="height:${h}px">`; }
     function gridLines(W, H, padL, padR, padT, padB, nx, ny) {
       let s = '';
-      for (let i = 0; i <= ny; i++) { const y = padT + (H - padT - padB) * i / ny; s += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`; }
+      for (let i = 0; i <= ny; i++) { const y = padT + (H - padT - padB) * i / ny; s += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#DEDEDE" stroke-width="1"/>`; }
       return s;
     }
     function poly(pts, color, w, dash) {
