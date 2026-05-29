@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#ffffff" />
+<title>16:8 · fasting.log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  /* ╔══════════════════════════════════════════════════════════╗
+     ║  🎨  COLOR PANEL — 在这里改颜色，全 app 都会跟着变            ║
+     ║  改完保存刷新即可。每个颜色都标了它控制哪里。                  ║
+     ╚══════════════════════════════════════════════════════════╝ */
+  :root{
+    /* ---- 1. 背景与文字 (backgrounds & text) ---- */
+    --bg:        #ffffff;   /* 主背景 / 输入框底色 (page background) */
+    --bg-2:      #fbf8f1;   /* 次级背景 (rarely seen) */
+    --panel:     #fbf7ee;   /* 卡片底色 (card background) */
+    --panel-2:   #f6f0e3;   /* 卡片内小块底色 (inner chips/metrics) */
+    --line:      #e4dccb;   /* 边框线 (borders) */
+    --line-2:    #cebfa4;   /* 深一点的边框 / 坐标轴 (darker lines) */
+    --fg:        #4f4231;   /* 正文字 (body text) */
+    --fg-bright: #332a1c;   /* 标题 / 重点字 (headings, bold numbers) */
+    --muted:     #7d6a4c;   /* 次要说明字 (secondary text) */
+    --dim:       #a89a7c;   /* 最淡的字 / 提示 (faint hints, axis labels) */
+
+    /* ---- 2. 主题强调色 (accent colors) ---- */
+    --green:     #6f9a6a;   /* 绿: 可进食 / 16+8进食态 (eat-window) */
+    --red:       #c25d4f;   /* 红: 断食态 / 卡路里盈余 (fasting / surplus) */
+    --blue:      #6b97b8;   /* 蓝: 卡路里缺口 / 体脂率线 (deficit / body-fat) */
+    --amber:     #d99a3f;   /* 黄: 摄入卡路里 (intake) */
+    --violet:    #9c7fa6;   /* 紫: 消耗卡路里 (burn) */
+    --teal:      #5fa39a;   /* 青: 腰围线 (waist) */
+    --olive:     #9a8754;   /* 橄榄: 腿围线 (leg) */
+    --orange:    #cf8b54;   /* 陶土: 体重线 (weight) */
+
+    /* ---- 3. 半透明填充 (soft fills, auto-derived) ---- */
+    --green-soft:rgba(111,154,106,.16);
+    --red-soft:  rgba(194,93,79,.14);
+    --blue-soft: rgba(107,151,184,.16);
+
+    /* ---- 4. 字体与阴影 (fonts & shadow — 一般不用改) ---- */
+    --mono:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --grot:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --shadow: 0 1px 0 rgba(95,74,50,.04), 0 8px 22px rgba(95,74,50,.08);
+  }
+
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0;padding:0;height:100%;width:100%;overflow:hidden;overscroll-behavior:none;position:fixed;inset:0;}
+  body{
+    font-family:var(--mono);
+    color:var(--fg);
+    background:#ffffff;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  #app{
+    position:absolute;inset:0;width:100%;max-width:520px;margin:0 auto;
+    display:flex;flex-direction:column;min-height:0;
+    background:#ffffff;
+    box-shadow:0 0 40px rgba(95,74,50,.08);
+    overflow:hidden;
+  }
+
+  /* ============ top bar ============ */
+  .topbar{
+    flex:0 0 auto;
+    padding:max(env(safe-area-inset-top),14px) 16px 10px;
+    border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:10px;
+    background:rgba(255,255,255,.85);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  }
+  .dots{display:flex;gap:6px;}
+  .dots i{width:11px;height:11px;border-radius:50%;display:block;}
+  .dots i:nth-child(1){background:var(--red);}
+  .dots i:nth-child(2){background:var(--amber);}
+  .dots i:nth-child(3){background:var(--green);}
+  .title{font-size:12.5px;color:var(--muted);letter-spacing:.02em;}
+  .title b{color:var(--fg-bright);font-weight:600;}
+  .title .cursor{color:var(--green);animation:blink 1.4s steps(1) infinite;}
+  @keyframes blink{50%{opacity:0;}}
+
+  /* ============ tabs ============ */
+  .tabs{
+    flex:0 0 auto;display:flex;border-bottom:1px solid var(--line);
+    background:var(--bg-2);
+  }
+  .tab{
+    flex:1;padding:11px 6px;background:none;border:none;cursor:pointer;
+    font-family:var(--mono);font-size:11.5px;color:var(--dim);
+    letter-spacing:.04em;position:relative;transition:color .15s;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .tab .sig{color:var(--line-2);}
+  .tab.active{color:var(--fg-bright);}
+  .tab.active .sig{color:var(--green);}
+  .tab.active::after{
+    content:"";position:absolute;left:14%;right:14%;bottom:-1px;height:2px;
+    background:var(--green);border-radius:2px;
+  }
+  .tab:active{transform:scale(.97);}
+
+  /* ============ scroll body ============ */
+  .body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;
+    padding:16px 14px max(env(safe-area-inset-bottom),24px);}
+  .body::-webkit-scrollbar{display:none;}
+
+  .view{display:none;animation:fade .28s ease;}
+  .view.show{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  /* ============ HOME: vertical modules ============ */
+  .home-head{padding:6px 2px 18px;border-bottom:1px solid var(--line);margin-bottom:16px;}
+  .home-kicker{font-size:10.5px;color:var(--dim);letter-spacing:.04em;margin-bottom:10px;}
+  .home-title{font-family:var(--grot);font-weight:400;font-size:34px;line-height:1.02;color:var(--fg-bright);margin:0;letter-spacing:.005em;}
+  .home-title em{font-style:italic;color:var(--red);}
+  .home-sub{font-size:11px;color:var(--muted);margin-top:8px;letter-spacing:.02em;}
+
+  .mod{
+    display:block;width:100%;text-align:left;cursor:pointer;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:16px 16px 15px;margin-bottom:13px;position:relative;overflow:hidden;
+    transition:transform .14s ease,border-color .18s,box-shadow .2s;
+    font-family:var(--mono);
+  }
+  .mod:active{transform:scale(.985);}
+  .mod:hover{box-shadow:var(--shadow);}
+  .mod-top{display:flex;align-items:center;gap:10px;}
+  .mod-no{font-size:11px;color:var(--dim);letter-spacing:.1em;}
+  .mod-name{font-family:var(--grot);font-size:22px;color:var(--fg-bright);font-weight:400;}
+  .mod-arrow{margin-left:auto;font-size:16px;color:var(--line-2);transition:transform .18s,color .18s;}
+  .mod:hover .mod-arrow{color:var(--fg);transform:translateX(3px);}
+  .mod-desc{font-size:10.5px;color:var(--muted);margin:7px 0 0;letter-spacing:.01em;line-height:1.5;}
+  .mod-stat{}
+  .mod .mod-stat-row,.mod-record .mod-stat{display:flex;gap:16px;margin-top:12px;font-size:11px;color:var(--dim);}
+  .mod-record .mod-stat span{display:flex;flex-direction:column;gap:2px;}
+  .mod-record .mod-stat b{font-family:var(--grot);font-size:18px;font-weight:400;}
+  .mod-spark{margin-top:12px;}
+  .mod-spark .spark-empty{font-size:9.5px;color:var(--dim);}
+
+  /* 16+8 module: entire card is green (eat) or red (fast) */
+  .mod-fast.is-eat{background:var(--green);border-color:var(--green);}
+  .mod-fast.is-fast{background:var(--red);border-color:var(--red);}
+  .mod-fast .mod-no{color:rgba(255,255,255,.7);}
+  .mod-fast .mod-name{color:#fff;}
+  .mod-fast .mod-arrow{color:rgba(255,255,255,.7);}
+  .mod-fast:hover .mod-arrow{color:#fff;}
+  .mod-fastrow{display:flex;align-items:center;gap:11px;margin-top:12px;}
+  .mod-fastrow .ff-now{font-family:var(--mono);font-weight:600;font-size:24px;color:#fff;letter-spacing:.01em;}
+  .mod-fastrow .ff-pill{font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:4px 11px;border-radius:20px;color:#fff;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);}
+  .ff-de{font-size:10px;color:rgba(255,255,255,.8);margin-top:8px;letter-spacing:.01em;}
+
+  /* backup & restore tools (home footer) */
+  .backup{margin-top:18px;padding-top:16px;border-top:1px dashed var(--line);}
+  .backup-label{font-size:10px;color:var(--dim);letter-spacing:.03em;margin-bottom:10px;}
+  .backup-btns{display:flex;gap:9px;}
+  .bk-btn{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--muted);
+    font-family:var(--mono);font-size:11.5px;padding:9px;border-radius:9px;cursor:pointer;transition:all .14s;}
+  .bk-btn:hover{border-color:var(--line-2);color:var(--fg);}
+  .bk-btn:active{transform:scale(.97);}
+  .backup-note{font-size:9.5px;color:var(--dim);margin-top:9px;line-height:1.5;}
+
+  /* ============ RECORD: day picker ============ */
+  .prompt{font-size:11.5px;color:var(--dim);margin:2px 2px 14px;line-height:1.6;}
+  .prompt .g{color:var(--green);}
+  .prompt .b{color:var(--blue);}
+  .prompt .y{color:var(--amber);}
+
+  .daygrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+  .daycard{
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:12px 12px 11px;text-align:left;cursor:pointer;position:relative;
+    transition:transform .14s,border-color .18s,background .18s;
+    display:flex;flex-direction:column;gap:3px;min-height:78px;
+  }
+  .daycard:active{transform:scale(.98);}
+  .daycard.today{border-color:var(--green);background:var(--green-soft);}
+  .daycard .dd{font-size:10px;color:var(--dim);letter-spacing:.06em;}
+  .daycard .dnum{font-size:18px;color:var(--fg-bright);font-weight:600;font-family:var(--grot);}
+  .daycard.today .dnum{color:var(--green);}
+  .daycard .dmeta{font-size:9.5px;color:var(--muted);margin-top:auto;line-height:1.5;}
+  .daycard .dmeta .sep{color:var(--line-2);}
+  .daycard .badge{
+    position:absolute;top:9px;right:9px;font-size:8px;letter-spacing:.1em;
+    color:var(--green);border:1px solid var(--green);border-radius:4px;padding:1px 4px;
+  }
+  .daycard .empty-dot{position:absolute;top:11px;right:11px;width:6px;height:6px;border-radius:50%;background:var(--line-2);}
+  .daycard .has-dot{background:var(--green);}
+
+  .addday{
+    border:1px dashed var(--line-2);background:transparent;color:var(--dim);
+    display:flex;align-items:center;justify-content:center;font-size:22px;
+    border-radius:10px;cursor:pointer;min-height:78px;transition:color .15s,border-color .15s;
+  }
+  .addday:active{transform:scale(.98);}
+  .addday:hover{color:var(--green);border-color:var(--green);}
+
+  /* ============ DAY detail ============ */
+  .dayhead{display:flex;align-items:center;gap:10px;margin:0 2px 16px;}
+  .backbtn{background:var(--panel);border:1px solid var(--line);color:var(--muted);
+    font-family:var(--mono);font-size:12px;border-radius:8px;padding:6px 11px;cursor:pointer;}
+  .backbtn:active{transform:scale(.96);}
+  .dayhead h2{margin:0;font-family:var(--grot);font-size:19px;color:var(--fg-bright);font-weight:600;letter-spacing:.01em;}
+  .dayhead .sub{font-size:10.5px;color:var(--dim);}
+  .delbtn{margin-left:auto;background:transparent;border:1px solid var(--line);color:var(--red);
+    font-family:var(--mono);font-size:12px;border-radius:8px;padding:6px 11px;cursor:pointer;transition:all .14s;}
+  .delbtn:hover{background:var(--red-soft);border-color:var(--red);}
+  .delbtn:active{transform:scale(.96);}
+
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:14px;margin-bottom:12px;
+  }
+  .card-h{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .card-h .ic{font-size:13px;}
+  .card-h h3{margin:0;font-size:12px;color:var(--fg-bright);letter-spacing:.05em;font-weight:600;text-transform:uppercase;}
+  .card-h .tag{margin-left:auto;font-size:10px;color:var(--dim);}
+  .hint{font-size:10px;color:var(--dim);margin:-4px 0 10px;line-height:1.5;}
+
+  /* exercise chips */
+  .chips{display:flex;flex-wrap:wrap;gap:7px;}
+  .chip{
+    border:1px solid var(--line);background:var(--panel-2);color:var(--muted);
+    font-family:var(--mono);font-size:11px;border-radius:20px;padding:6px 12px;cursor:pointer;
+    transition:all .14s;display:flex;align-items:center;gap:5px;
+  }
+  .chip:active{transform:scale(.95);}
+  .chip.on{border-color:var(--violet);color:var(--violet);background:rgba(188,140,255,.1);}
+  .chip .x{font-size:9px;opacity:.6;}
+
+  .ex-rows{margin-top:11px;display:flex;flex-direction:column;gap:8px;}
+  .ex-row{display:flex;align-items:center;gap:9px;font-size:12px;}
+  .ex-row .nm{flex:1;color:var(--fg);}
+  .ex-row .kc{display:flex;align-items:center;gap:5px;}
+  .num-in{
+    width:76px;background:var(--bg);border:1px solid var(--line);border-radius:7px;
+    color:var(--fg-bright);font-family:var(--mono);font-size:12.5px;padding:6px 8px;text-align:right;
+    transition:border-color .15s;
+  }
+  .num-in:focus{outline:none;border-color:var(--violet);}
+  .ex-row .u{color:var(--dim);font-size:10px;}
+
+  .meal-in{
+    width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;
+    color:var(--fg);font-family:var(--mono);font-size:12px;padding:9px 10px;resize:none;
+    line-height:1.5;transition:border-color .15s;
+  }
+  .meal-in:focus{outline:none;border-color:var(--amber);}
+  .meal-cal{display:flex;align-items:center;gap:6px;margin-top:9px;justify-content:flex-end;}
+  .meal-cal label{font-size:10px;color:var(--dim);}
+
+  /* totals */
+  .total-row{display:flex;align-items:center;justify-content:space-between;
+    padding:11px 14px;border-radius:10px;margin-bottom:9px;font-size:12.5px;}
+  .total-row .lbl{color:var(--muted);letter-spacing:.03em;}
+  .total-row .val{font-family:var(--grot);font-weight:600;font-size:17px;}
+  .t-burn{background:rgba(188,140,255,.08);border:1px solid rgba(188,140,255,.25);}
+  .t-burn .val{color:var(--violet);}
+  .t-intake{background:rgba(227,179,65,.08);border:1px solid rgba(227,179,65,.25);}
+  .t-intake .val{color:var(--amber);}
+  .t-gap{padding:14px;border-radius:12px;text-align:center;margin-top:4px;border:1px solid var(--line);}
+  .t-gap .glabel{font-size:10.5px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;}
+  .t-gap .gval{font-family:var(--grot);font-weight:700;font-size:34px;line-height:1.1;margin-top:4px;}
+  .t-gap .gunit{font-size:13px;color:var(--dim);}
+  .t-gap.deficit{background:var(--blue-soft);border-color:rgba(88,166,255,.35);}
+  .t-gap.deficit .gval{color:var(--blue);}
+  .t-gap.surplus{background:var(--red-soft);border-color:rgba(248,81,73,.35);}
+  .t-gap.surplus .gval{color:var(--red);}
+
+  /* body metrics */
+  .metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .metric{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:11px;}
+  .metric label{font-size:9.5px;color:var(--dim);letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:7px;}
+  .metric .field{display:flex;align-items:baseline;gap:5px;}
+  .metric .mi{
+    flex:1;width:100%;background:var(--bg);border:1px solid var(--line);border-radius:7px;
+    color:var(--fg-bright);font-family:var(--grot);font-weight:600;font-size:18px;padding:7px 9px;
+    transition:border-color .15s;
+  }
+  .metric .mi:focus{outline:none;border-color:var(--teal);}
+  .metric .un{font-size:11px;color:var(--dim);}
+
+  /* "saved" confirmation — small floating pill, only visible briefly on save */
+  .saved-flag{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);
+    font-size:10.5px;color:#fff;background:var(--green);
+    padding:6px 14px;border-radius:20px;
+    opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;
+    z-index:150;box-shadow:var(--shadow);
+  }
+  .saved-flag.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* ============ STATISTIC ============ */
+  .stat-h{font-family:var(--grot);font-size:19px;color:var(--fg-bright);font-weight:600;margin:0 2px 4px;}
+  .stat-sub{font-size:10.5px;color:var(--dim);margin:0 2px 16px;line-height:1.6;}
+  .chart-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 12px 10px;margin-bottom:12px;}
+  .chart-title{font-size:11px;color:var(--fg-bright);letter-spacing:.05em;text-transform:uppercase;margin:0 2px 4px;font-weight:600;}
+  .chart-note{font-size:9.5px;color:var(--dim);margin:0 2px 10px;line-height:1.5;}
+  .legend{display:flex;flex-wrap:wrap;gap:10px 14px;margin:8px 2px 2px;}
+  .legend span{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:5px;}
+  .legend span i{width:14px;height:3px;border-radius:2px;display:block;}
+  .legend span i.dash{background-image:repeating-linear-gradient(90deg,currentColor 0 4px,transparent 4px 7px);height:2px;}
+  .legend span i.band{height:9px;opacity:.5;border-radius:2px;}
+  svg{display:block;width:100%;}
+  .empty-state{text-align:center;color:var(--dim);font-size:11.5px;padding:30px 10px;line-height:1.8;}
+  .empty-state .big{font-size:30px;display:block;margin-bottom:8px;opacity:.6;}
+
+  /* ============ FASTING (16:8) ============ */
+  .fast-wrap{display:flex;flex-direction:column;align-items:center;padding:8px 0 4px;}
+  .fast-ring{position:relative;width:248px;height:248px;margin:6px 0 18px;}
+  .fast-ring svg{width:100%;height:100%;transform:rotate(-90deg);}
+  .fast-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;}
+  .fast-now{font-family:var(--grot);font-weight:700;font-size:42px;letter-spacing:.01em;line-height:1;}
+  .fast-state{font-size:11px;letter-spacing:.16em;text-transform:uppercase;margin-top:4px;}
+  .fast-line{font-size:12px;color:var(--fg);margin-top:2px;}
+  .fast-line.de{color:var(--dim);font-size:10.5px;}
+  .fast-msg{
+    width:100%;border-radius:12px;padding:16px;text-align:center;margin-bottom:14px;border:1px solid;
+  }
+  .fast-msg .m-en{font-family:var(--grot);font-size:18px;font-weight:600;line-height:1.2;}
+  .fast-msg .m-de{font-size:12px;margin-top:5px;opacity:.85;}
+  .fast-msg.eat{background:var(--green-soft);border-color:rgba(63,185,80,.4);color:var(--green);}
+  .fast-msg.fast{background:var(--red-soft);border-color:rgba(248,81,73,.4);color:var(--red);}
+  .countdown{font-size:11px;color:var(--muted);margin-top:8px;letter-spacing:.04em;}
+  .countdown b{color:var(--fg-bright);font-family:var(--grot);}
+  .window-info{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;width:100%;}
+  .window-info .wr{display:flex;justify-content:space-between;font-size:11.5px;padding:5px 0;}
+  .window-info .wr .k{color:var(--dim);}
+  .window-info .wr .v{color:var(--fg-bright);font-family:var(--grot);}
+  .seg{display:flex;gap:7px;width:100%;margin-bottom:14px;}
+  .seg button{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--muted);
+    font-family:var(--mono);font-size:11px;padding:7px;border-radius:8px;cursor:pointer;transition:all .14s;}
+  .seg button.on{border-color:var(--green);color:var(--green);background:var(--green-soft);}
+
+  /* toast */
+  .toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%) translateY(20px);
+    background:var(--panel-2);border:1px solid var(--line-2);color:var(--fg-bright);
+    font-size:11.5px;padding:9px 16px;border-radius:10px;opacity:0;pointer-events:none;
+    transition:all .25s;z-index:200;box-shadow:var(--shadow);}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:var(--bg);z-index:500;color:var(--dim);font-size:12px;}
+  .loading.hide{display:none;}
+
+  /* hide the top navigation (topbar + tabs) on the home screen */
+  #app[data-screen="home"] .nav{display:none;}
+</style>
+</head>
+<body>
+<div id="app" data-screen="home">
+  <div class="nav">
+    <div class="topbar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <div class="title">~/ <b>fasting</b>.log <span class="cursor">█</span></div>
+    </div>
+    <div class="tabs">
+      <button class="tab" data-tab="home"><span class="sig">⌂</span> Home</button>
+      <button class="tab" data-tab="record"><span class="sig">$</span> Record</button>
+      <button class="tab" data-tab="stat"><span class="sig">~</span> Stats</button>
+      <button class="tab" data-tab="fast"><span class="sig">◷</span> 16+8</button>
+    </div>
+  </div>
+  <div class="body" id="body"></div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="loading" id="loading">loading state…</div>
+
+<script>
+/* ============================================================
+   16:8 FASTING + CALORIE TRACKER · CLI-style
+   Storage: localStorage (works on GitHub Pages & phone home-screen)
+   ============================================================ */
+
+const EXERCISES = [
+  'Pilates','Hiking','Outdoor walking','Gym','Jazz dance','Swimming'
+];
+const EAT_START_H = 6, EAT_START_M = 30;   // window opens 06:30
+const WINDOW_HOURS = 8;                      // 8h eating window → closes 14:30
+
+const state = {
+  tab:'home',
+  view:'list',          // list | day
+  dayKey:null,
+  data:{},              // { 'YYYY-MM-DD': {...} }
+  demoNow:null,         // for ?t=HHmm preview of fasting clock
+};
+
+const body = document.getElementById('body');
+const toastEl = document.getElementById('toast');
+
+/* ---------- helpers ---------- */
+function pad(n){return String(n).padStart(2,'0');}
+function todayKey(){const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;}
+function keyToDate(k){const[y,m,d]=k.split('-').map(Number);return new Date(y,m-1,d);}
+function fmtShort(k){const d=keyToDate(k);return `${pad(d.getMonth()+1)}/${pad(d.getDate())}`;}
+function weekday(k){return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][keyToDate(k).getDay()];}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function num(v){const n=parseFloat(v);return isNaN(n)?0:n;}
+function toast(m){toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(toastEl._t);toastEl._t=setTimeout(()=>toastEl.classList.remove('show'),1500);}
+
+function blankDay(){
+  return {
+    exercises:{},          // {name: kcal}
+    meals:{breakfast:{text:'',cal:''},lunch:{text:'',cal:''},dinner:{text:'',cal:''}},
+    weight:'',waist:'',leg:'',bodyfat:''
+  };
+}
+function getDay(k){ if(!state.data[k]) state.data[k]=blankDay(); return state.data[k]; }
+
+/* ---------- persistence (localStorage — works on GitHub Pages & phone) ---------- */
+const STORE_KEY = 'fasting16_8_data_v1';   // 所有数据存在这一个键里
+
+function loadAll(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){ state.data = JSON.parse(raw) || {}; }
+  }catch(e){ console.log('load error', e); state.data = {}; }
+}
+let saveTimer=null;
+function queueSave(k){
+  // stamp the edited day so multi-device merge can pick the newest
+  if(k && state.data[k]) state.data[k]._t = Date.now();
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(saveAll,250);
+}
+function saveLocal(){
+  try{
+    localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+  }catch(e){ console.log('save error', e); toast('保存失败 · save failed'); }
+}
+function saveAll(){
+  saveLocal();
+  flagSaved();
+  queuePush();   // debounced push to your VPS (no-op if sync not configured)
+}
+function deleteDay(k){
+  delete state.data[k];
+  saveAll();
+}
+
+/* ---------- cloud sync (your own VPS) ----------
+   - Token is entered once per device and kept in localStorage,
+     so it is NEVER committed to the public GitHub repo.
+   - Merge is last-write-wins PER DAY (uses each day's _t stamp). */
+const SYNC_URL_KEY='fasting_sync_url', SYNC_TOK_KEY='fasting_sync_token';
+function syncCfg(){
+  return { url:(localStorage.getItem(SYNC_URL_KEY)||'').trim(),
+           token:(localStorage.getItem(SYNC_TOK_KEY)||'').trim() };
+}
+function syncOn(){ const c=syncCfg(); return !!(c.url && c.token); }
+function setSyncStatus(s){ const el=document.getElementById('syncStatus'); if(el) el.textContent=s; }
+
+function mergeData(local, server){
+  const out={...local};
+  for(const k in server){
+    const tl=(local[k]&&local[k]._t)||0, ts=(server[k]&&server[k]._t)||0;
+    if(!(k in out) || ts>=tl) out[k]=server[k];   // server day is newer/equal → take it
+  }
+  return out;
+}
+
+let pushTimer=null;
+function queuePush(){ if(!syncOn())return; clearTimeout(pushTimer); pushTimer=setTimeout(pushNow,800); }
+
+async function pushNow(){
+  if(!syncOn()) return;
+  const c=syncCfg();
+  try{
+    setSyncStatus('saving…');
+    const r=await fetch(c.url,{method:'PUT',
+      headers:{Authorization:'Bearer '+c.token,'Content-Type':'application/json'},
+      body:JSON.stringify({data:state.data})});
+    if(r.status===401){ setSyncStatus('云端拒绝 · 检查 token'); return; }
+    if(!r.ok) throw new Error('http '+r.status);
+    setSyncStatus('已同步 · '+new Date().toLocaleTimeString());
+  }catch(e){ setSyncStatus('云端保存失败 · 已存本机'); }
+}
+
+async function pullAndMerge(){
+  if(!syncOn()){ setSyncStatus('off · 点 configure 开启'); return; }
+  const c=syncCfg();
+  try{
+    setSyncStatus('syncing…');
+    const r=await fetch(c.url,{headers:{Authorization:'Bearer '+c.token}});
+    if(r.status===401){ setSyncStatus('云端拒绝 · 检查 token'); return; }
+    if(!r.ok) throw new Error('http '+r.status);
+    const j=await r.json();
+    const server=(j&&j.data)||{};
+    const before=JSON.stringify(state.data);
+    state.data=mergeData(state.data, server);
+    saveLocal();
+    const changed = JSON.stringify(state.data)!==before;
+    // if our local copy had days the server lacked (or newer), push the merge back
+    if(JSON.stringify(state.data)!==JSON.stringify(server)) await pushNow();
+    if(changed) render();
+    setSyncStatus('已同步 · '+new Date().toLocaleTimeString());
+  }catch(e){ setSyncStatus('离线 · 使用本机数据'); }
+}
+
+function configureSync(){
+  const c=syncCfg();
+  const url=prompt('Sync API URL (https://…/data):',
+                   c.url||'https://fasting.YOURNAME.duckdns.org/data');
+  if(url===null) return;
+  const tok=prompt('Secret token (与服务器一致):', c.token||'');
+  if(tok===null) return;
+  localStorage.setItem(SYNC_URL_KEY, url.trim());
+  localStorage.setItem(SYNC_TOK_KEY, tok.trim());
+  toast('已保存 sync 设置');
+  pullAndMerge();
+}
+function flagSaved(){
+  const f=document.getElementById('savedFlag');
+  if(f){f.classList.add('show');clearTimeout(f._t);f._t=setTimeout(()=>f.classList.remove('show'),1400);}
+}
+
+/* ---------- compute ---------- */
+function burnTotal(d){return Object.values(d.exercises).reduce((s,v)=>s+num(v),0);}
+function intakeTotal(d){return ['breakfast','lunch','dinner'].reduce((s,m)=>s+num(d.meals[m].cal),0);}
+function deficit(d){return burnTotal(d)-intakeTotal(d);} // positive = deficit (good)
+
+/* ============================================================
+   RENDER ROUTER
+   ============================================================ */
+function render(){
+  document.getElementById('app').setAttribute('data-screen', state.tab);
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===state.tab));
+  if(state.tab==='home'){ renderHome(); }
+  else if(state.tab==='record'){ state.view==='day'?renderDay():renderList(); }
+  else if(state.tab==='stat'){ renderStat(); }
+  else { renderFast(); }
+}
+
+/* ---------- HOME: three vertical modules ---------- */
+function renderHome(){
+  const tk=todayKey();
+  const d=getDay(tk);
+  const burn=burnTotal(d), intake=intakeTotal(d), gap=deficit(d);
+  const logged = Object.keys(state.data).filter(k=>{const x=state.data[k];return burnTotal(x)>0||intakeTotal(x)>0||x.weight||x.waist||x.leg||x.bodyfat;}).length;
+
+  // fasting status for the home preview
+  const {now,open,close}=windowBounds();
+  const canEat = now>=open && now<close;
+  const nowStr = pad(now.getHours())+':'+pad(now.getMinutes());
+
+  body.innerHTML=`
+  <div class="view show">
+    <div class="home-head">
+      <div class="home-kicker">$ ~/16:8 — intermittent fasting log</div>
+      <h1 class="home-title">fasting<em>.log</em></h1>
+      <div class="home-sub">${weekday(tk)} · ${tk} &nbsp;·&nbsp; ${logged} day(s) logged</div>
+    </div>
+
+    <button class="mod mod-record" data-go="record">
+      <div class="mod-top"><span class="mod-no">01</span><span class="mod-name">Record</span><span class="mod-arrow">→</span></div>
+      <div class="mod-desc">log today's exercise, meals &amp; body metrics</div>
+      <div class="mod-stat">
+        <span>burn <b style="color:var(--violet)">${burn}</b></span>
+        <span>intake <b style="color:var(--amber)">${intake}</b></span>
+        <span>${gap>=0?'deficit':'surplus'} <b style="color:${gap>=0?'var(--blue)':'var(--red)'}">${gap>=0?'+':''}${gap}</b></span>
+      </div>
+    </button>
+
+    <button class="mod mod-stat" data-go="stat">
+      <div class="mod-top"><span class="mod-no">02</span><span class="mod-name">Statistic</span><span class="mod-arrow">→</span></div>
+      <div class="mod-desc">curves for energy &amp; body · trend predictions</div>
+      <div class="mod-spark" id="homeSpark"></div>
+    </button>
+
+    <button class="mod mod-fast ${canEat?'is-eat':'is-fast'}" data-go="fast">
+      <div class="mod-top"><span class="mod-no">03</span><span class="mod-name">16 + 8</span><span class="mod-arrow">→</span></div>
+      <div class="mod-fastrow">
+        <span class="ff-now">${nowStr}</span>
+        <span class="ff-pill">${canEat?'freely eat now':'fasting · no food'}</span>
+      </div>
+      <div class="ff-de">${canEat?'Du darfst jetzt frei essen':'Fastenzeit — jetzt nichts essen'}</div>
+    </button>
+
+    <div class="backup">
+      <div class="backup-label"># backup &amp; restore · ${logged} day(s) on this device</div>
+      <div class="backup-btns">
+        <button id="btnExport" class="bk-btn">↓ export .json</button>
+        <button id="btnImport" class="bk-btn">↑ import .json</button>
+      </div>
+      <input type="file" id="fileImport" accept="application/json,.json" style="display:none">
+      <div class="backup-note">数据存在本机浏览器；开启 cloud sync 后会自动同步到你的 VPS。</div>
+
+      <div class="backup-label" style="margin-top:14px"># cloud sync · <span id="syncStatus">${syncOn()?'enabled':'off · 点 configure 开启'}</span></div>
+      <div class="backup-btns">
+        <button id="btnSyncCfg" class="bk-btn">⚙ configure</button>
+        <button id="btnSyncNow" class="bk-btn">⟳ sync now</button>
+      </div>
+    </div>
+  </div>`;
+
+  body.querySelectorAll('.mod').forEach(m=>m.addEventListener('click',()=>{
+    state.tab=m.dataset.go; if(state.tab==='record')state.view='list'; render();
+  }));
+
+  // backup handlers
+  body.querySelector('#btnExport').addEventListener('click', exportData);
+  const fileInput = body.querySelector('#fileImport');
+  body.querySelector('#btnImport').addEventListener('click', ()=>fileInput.click());
+  fileInput.addEventListener('change', importData);
+
+  // cloud sync handlers
+  body.querySelector('#btnSyncCfg').addEventListener('click', configureSync);
+  body.querySelector('#btnSyncNow').addEventListener('click', pullAndMerge);
+  if(syncOn()) setSyncStatus('enabled');
+
+  // tiny sparkline of deficit
+  drawSpark(document.getElementById('homeSpark'));
+}
+
+/* ---------- export / import backup ---------- */
+function exportData(){
+  const payload = { app:'fasting16_8', version:1, exportedAt:new Date().toISOString(), data:state.data };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const today = todayKey();
+  a.href = url; a.download = `fasting-backup-${today}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  toast('已导出 · backup downloaded');
+}
+
+function importData(e){
+  const file = e.target.files && e.target.files[0];
+  e.target.value = ''; // reset so same file can be re-picked
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    let parsed;
+    try{ parsed = JSON.parse(reader.result); }
+    catch(err){ toast('文件无法解析 · invalid file'); return; }
+    const incoming = (parsed && parsed.data && typeof parsed.data==='object') ? parsed.data
+                   : (parsed && typeof parsed==='object' && !parsed.data) ? parsed : null;
+    if(!incoming){ toast('格式不对 · unrecognized format'); return; }
+    const nDays = Object.keys(incoming).length;
+    const ok = confirm(`导入 ${nDays} 天的数据？\nImport ${nDays} day(s)?\n\n确定 = 合并（同一天会被备份覆盖）\nCancel = 取消`);
+    if(!ok) return;
+    // merge: incoming overwrites same dates, keeps others
+    state.data = Object.assign({}, state.data, incoming);
+    saveAll();
+    toast(`已导入 ${nDays} 天 · imported`);
+    render();
+  };
+  reader.readAsText(file);
+}
+
+function drawSpark(el){
+  if(!el)return;
+  const keys=sortedKeys().filter(k=>{const x=state.data[k];return burnTotal(x)>0||intakeTotal(x)>0;});
+  if(keys.length<2){el.innerHTML=`<span class="spark-empty">— log 2+ days to see your deficit trend —</span>`;return;}
+  const vals=keys.map(k=>deficit(state.data[k]));
+  const W=300,H=34;let mn=Math.min(0,...vals),mx=Math.max(0,...vals);if(mn===mx)mx=mn+1;
+  const X=i=>(W)*i/(vals.length-1);
+  const Y=v=>H*(1-(v-mn)/(mx-mn));
+  const p=vals.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join(' ');
+  let zero='';if(mn<0&&mx>0){const z=Y(0);zero=`<line x1="0" y1="${z}" x2="${W}" y2="${z}" stroke="var(--line-2)" stroke-width="1" stroke-dasharray="2 3"/>`;}
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:${H}px;width:100%">${zero}<path d="${p}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+/* ---------- RECORD: list ---------- */
+function renderList(){
+  const tk=todayKey();
+  // ensure today exists in list
+  const keys = Object.keys(state.data);
+  if(!keys.includes(tk)) keys.push(tk);
+  keys.sort().reverse();
+
+  const cards = keys.map(k=>{
+    const d=state.data[k];
+    const has = d && (burnTotal(d)>0||intakeTotal(d)>0||d.weight||d.waist||d.leg||d.bodyfat);
+    const gap = d?deficit(d):0;
+    return `<button class="daycard ${k===tk?'today':''}" data-k="${k}">
+      ${k===tk?'<span class="badge">TODAY</span>':`<span class="empty-dot ${has?'has-dot':''}"></span>`}
+      <div class="dd">${weekday(k)}</div>
+      <div class="dnum">${fmtShort(k)}</div>
+      <div class="dmeta">${has?`${gap>=0?'deficit':'surplus'} <span class="sep">·</span> ${gap>=0?'+':''}${gap} kcal`:'no entry yet'}</div>
+    </button>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="view show">
+      <div class="prompt">
+        <span class="g">$</span> ./record --new<br>
+        select a day to log <span class="b">exercise</span>, <span class="y">meals</span> &amp; body metrics.
+      </div>
+      <div class="daygrid">
+        ${cards}
+        <button class="addday" id="addDay">+</button>
+      </div>
+    </div>`;
+
+  body.querySelectorAll('.daycard').forEach(c=>c.addEventListener('click',()=>{
+    state.dayKey=c.dataset.k; state.view='day'; render();
+  }));
+  body.querySelector('#addDay').addEventListener('click', addPrevDay);
+}
+
+function addPrevDay(){
+  // add the earliest-1 day (or yesterday)
+  const keys=Object.keys(state.data); if(!keys.includes(todayKey()))keys.push(todayKey());
+  keys.sort();
+  const earliest = keyToDate(keys[0]);
+  earliest.setDate(earliest.getDate()-1);
+  const nk=`${earliest.getFullYear()}-${pad(earliest.getMonth()+1)}-${pad(earliest.getDate())}`;
+  getDay(nk); state.dayKey=nk; state.view='day'; render();
+}
+
+/* ---------- RECORD: day detail ---------- */
+function renderDay(){
+  const k=state.dayKey; const d=getDay(k);
+  const burn=burnTotal(d), intake=intakeTotal(d), gap=deficit(d);
+
+  const chips = EXERCISES.map(name=>{
+    const on = d.exercises.hasOwnProperty(name);
+    return `<button class="chip ${on?'on':''}" data-ex="${esc(name)}">${esc(name)}${on?' <span class="x">✕</span>':''}</button>`;
+  }).join('');
+
+  const exRows = Object.keys(d.exercises).map(name=>`
+    <div class="ex-row" data-row="${esc(name)}">
+      <span class="nm">▸ ${esc(name)}</span>
+      <span class="kc">
+        <input class="num-in ex-cal" data-ex="${esc(name)}" inputmode="numeric" placeholder="0" value="${esc(d.exercises[name])}">
+        <span class="u">kcal</span>
+      </span>
+    </div>`).join('');
+
+  function meal(id,label){
+    return `<div class="card">
+      <div class="card-h"><span class="ic">${id==='breakfast'?'☀':id==='lunch'?'☼':'☾'}</span>
+        <h3>${label}</h3><span class="tag">${id}</span></div>
+      <textarea class="meal-in" data-meal="${id}" data-f="text" rows="2" placeholder="what did you eat?">${esc(d.meals[id].text)}</textarea>
+      <div class="meal-cal">
+        <label>intake</label>
+        <input class="num-in" data-meal="${id}" data-f="cal" inputmode="numeric" placeholder="0" value="${esc(d.meals[id].cal)}">
+        <span class="u" style="color:var(--dim);font-size:10px">kcal</span>
+      </div>
+    </div>`;
+  }
+
+  body.innerHTML = `
+  <div class="view show">
+    <div class="dayhead">
+      <button class="backbtn" id="back">‹ cd ..</button>
+      <div><h2>${fmtShort(k)}</h2><div class="sub">${weekday(k)} · ${k}</div></div>
+      <button class="delbtn" id="delDay" title="delete this day">rm</button>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><span class="ic">🏃</span><h3>Exercise</h3><span class="tag">multi-select</span></div>
+      <div class="hint">tap to add a sport, then type how many kcal it burned.</div>
+      <div class="chips">${chips}</div>
+      <div class="ex-rows">${exRows}</div>
+    </div>
+
+    ${meal('breakfast','Breakfast')}
+    ${meal('lunch','Lunch')}
+    ${meal('dinner','Dinner')}
+
+    <div class="card">
+      <div class="card-h"><span class="ic">∑</span><h3>Energy</h3></div>
+      <div class="total-row t-burn"><span class="lbl">total burned</span><span class="val" id="tBurn">${burn} kcal</span></div>
+      <div class="total-row t-intake"><span class="lbl">total intake</span><span class="val" id="tIntake">${intake} kcal</span></div>
+      <div class="t-gap ${gap>=0?'deficit':'surplus'}" id="gapBox">
+        <div class="glabel">calorie ${gap>=0?'deficit':'surplus'}</div>
+        <div class="gval" id="gapVal">${gap>=0?'+':''}${gap}<span class="gunit"> kcal</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><span class="ic">📐</span><h3>Body</h3><span class="tag">today</span></div>
+      <div class="metrics">
+        <div class="metric"><label>weight</label><div class="field"><input class="mi" data-m="weight" inputmode="decimal" placeholder="—" value="${esc(d.weight)}"><span class="un">kg</span></div></div>
+        <div class="metric"><label>waist</label><div class="field"><input class="mi" data-m="waist" inputmode="decimal" placeholder="—" value="${esc(d.waist)}"><span class="un">cm</span></div></div>
+        <div class="metric"><label>leg</label><div class="field"><input class="mi" data-m="leg" inputmode="decimal" placeholder="—" value="${esc(d.leg)}"><span class="un">cm</span></div></div>
+        <div class="metric"><label>body fat</label><div class="field"><input class="mi" data-m="bodyfat" inputmode="decimal" placeholder="—" value="${esc(d.bodyfat)}"><span class="un">%</span></div></div>
+      </div>
+    </div>
+
+    <div class="saved-flag" id="savedFlag">✓ saved</div>
+  </div>`;
+
+  // back
+  body.querySelector('#back').addEventListener('click',()=>{state.view='list';render();});
+
+  // delete this day (with confirm)
+  body.querySelector('#delDay').addEventListener('click',()=>{
+    const ok = confirm(`删除 ${k} 这一天的所有记录？\nDelete all entries for ${k}? This cannot be undone.`);
+    if(!ok) return;
+    deleteDay(k);
+    state.view='list';
+    toast('已删除 · day deleted');
+    render();
+  });
+
+  // toggle exercise chips
+  body.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{
+    const name=c.dataset.ex;
+    if(d.exercises.hasOwnProperty(name)) delete d.exercises[name];
+    else d.exercises[name]='';
+    queueSave(k); renderDay();
+  }));
+
+  // exercise kcal inputs
+  body.querySelectorAll('.ex-cal').forEach(inp=>inp.addEventListener('input',()=>{
+    d.exercises[inp.dataset.ex]=inp.value;
+    recalcDay(d); queueSave(k);
+  }));
+
+  // meals
+  body.querySelectorAll('[data-meal]').forEach(inp=>inp.addEventListener('input',()=>{
+    d.meals[inp.dataset.meal][inp.dataset.f]=inp.value;
+    if(inp.dataset.f==='cal') recalcDay(d);
+    queueSave(k);
+  }));
+
+  // body metrics
+  body.querySelectorAll('.mi').forEach(inp=>inp.addEventListener('input',()=>{
+    d[inp.dataset.m]=inp.value; queueSave(k);
+  }));
+}
+
+function recalcDay(d){
+  const burn=burnTotal(d), intake=intakeTotal(d), gap=deficit(d);
+  const tb=document.getElementById('tBurn'), ti=document.getElementById('tIntake');
+  const gv=document.getElementById('gapVal'), gb=document.getElementById('gapBox');
+  if(tb)tb.textContent=burn+' kcal';
+  if(ti)ti.textContent=intake+' kcal';
+  if(gv)gv.innerHTML=`${gap>=0?'+':''}${gap}<span class="gunit"> kcal</span>`;
+  if(gb){gb.className='t-gap '+(gap>=0?'deficit':'surplus');
+    gb.querySelector('.glabel').textContent='calorie '+(gap>=0?'deficit':'surplus');}
+}
+
+/* ============================================================
+   STATISTIC
+   ============================================================ */
+function sortedKeys(){return Object.keys(state.data).sort();}
+
+function renderStat(){
+  const keys = sortedKeys().filter(k=>{
+    const d=state.data[k];
+    return burnTotal(d)>0||intakeTotal(d)>0||d.weight||d.waist||d.leg||d.bodyfat;
+  });
+
+  if(keys.length===0){
+    body.innerHTML=`<div class="view show">
+      <h2 class="stat-h">Statistic</h2>
+      <div class="empty-state"><span class="big">∅</span>no data logged yet.<br>record a few days to see your curves &amp; predictions.</div></div>`;
+    return;
+  }
+
+  // ---- series ----
+  const xs = keys.map((k,i)=>i); // ordinal index
+  const burnS = keys.map(k=>burnTotal(state.data[k]));
+  const intakeS = keys.map(k=>intakeTotal(state.data[k]));
+  const gapS = keys.map(k=>deficit(state.data[k]));
+  const labels = keys.map(k=>fmtShort(k));
+
+  // body metric series (only points that exist)
+  function pts(field){
+    const arr=[];
+    keys.forEach((k,i)=>{const v=num(state.data[k][field]); if(state.data[k][field]!=='' && !isNaN(parseFloat(state.data[k][field]))) arr.push([i,v]);});
+    return arr;
+  }
+  const weightP=pts('weight'), waistP=pts('waist'), legP=pts('leg'), bfP=pts('bodyfat');
+
+  body.innerHTML=`
+  <div class="view show">
+    <h2 class="stat-h">Statistic</h2>
+    <div class="stat-sub">$ plot --energy --body --predict &nbsp;·&nbsp; ${keys.length} day(s) of data</div>
+
+    <div class="chart-card">
+      <div class="chart-title">Energy balance</div>
+      <div class="chart-note">burn / intake / deficit over time · kcal</div>
+      <div id="chartEnergy"></div>
+      <div class="legend">
+        <span style="color:var(--violet)"><i style="background:var(--violet)"></i>burn</span>
+        <span style="color:var(--amber)"><i style="background:var(--amber)"></i>intake</span>
+        <span style="color:var(--blue)"><i style="background:var(--blue)"></i>deficit</span>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Body metrics</div>
+      <div class="chart-note">weight · waist · leg · body-fat (blue) · normalized axes</div>
+      <div id="chartBody"></div>
+      <div class="legend">
+        <span style="color:var(--orange)"><i style="background:var(--orange)"></i>weight kg</span>
+        <span style="color:var(--teal)"><i style="background:var(--teal)"></i>waist cm</span>
+        <span style="color:var(--olive)"><i style="background:var(--olive)"></i>leg cm</span>
+        <span style="color:var(--blue)"><i style="background:var(--blue)"></i>body-fat %</span>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Prediction · body-fat &amp; waist</div>
+      <div class="chart-note" id="predNote">trend forecast w/ 95% confidence band</div>
+      <div id="chartPred"></div>
+      <div class="legend">
+        <span style="color:var(--blue)"><i style="background:var(--blue)"></i>body-fat %</span>
+        <span style="color:var(--blue)"><i class="dash" style="color:var(--blue)"></i>forecast</span>
+        <span style="color:var(--teal)"><i style="background:var(--teal)"></i>waist cm</span>
+        <span style="color:var(--teal)"><i class="dash" style="color:var(--teal)"></i>forecast</span>
+        <span style="color:var(--muted)"><i class="band" style="background:var(--muted)"></i>95% CI</span>
+      </div>
+    </div>
+  </div>`;
+
+  drawEnergy(document.getElementById('chartEnergy'), labels, [
+    {data:burnS,color:'var(--violet)'},
+    {data:intakeS,color:'var(--amber)'},
+    {data:gapS,color:'var(--blue)'}
+  ]);
+
+  drawBody(document.getElementById('chartBody'), labels, [
+    {pts:weightP,color:'var(--orange)'},
+    {pts:waistP,color:'var(--teal)'},
+    {pts:legP,color:'var(--olive)'},
+    {pts:bfP,color:'var(--blue)'}
+  ]);
+
+  drawPrediction(document.getElementById('chartPred'), keys, bfP, waistP);
+}
+
+/* ---- chart utilities ---- */
+function svgEl(w,h){return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="height:${h}px">`;}
+function gridLines(W,H,padL,padR,padT,padB,nx,ny){
+  let s='';
+  for(let i=0;i<=ny;i++){const y=padT+(H-padT-padB)*i/ny;s+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`;}
+  return s;
+}
+function poly(pts,color,w,dash){
+  if(pts.length<1)return'';
+  const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${w||2}" ${dash?`stroke-dasharray="5 4"`:''} stroke-linecap="round" stroke-linejoin="round"/>`;
+}
+function dots(pts,color,r){
+  return pts.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${r||2.6}" fill="${color}" stroke="var(--panel)" stroke-width="1"/>`).join('');
+}
+
+function drawEnergy(el,labels,series){
+  const W=496,H=190,padL=40,padR=14,padT=14,padB=26;
+  const n=labels.length;
+  let allVals=[]; series.forEach(s=>allVals.push(...s.data));
+  let min=Math.min(0,...allVals), max=Math.max(0,...allVals);
+  if(min===max){max=min+100;}
+  const pad=(max-min)*0.12; min-=pad; max+=pad;
+  const X=i=>padL+(n<=1?(W-padL-padR)/2:(W-padL-padR)*i/(n-1));
+  const Y=v=>padT+(H-padT-padB)*(1-(v-min)/(max-min));
+
+  let svg=svgEl(W,H);
+  svg+=gridLines(W,H,padL,padR,padT,padB,0,4);
+  // zero line
+  if(min<0&&max>0){const z=Y(0);svg+=`<line x1="${padL}" y1="${z}" x2="${W-padR}" y2="${z}" stroke="var(--line-2)" stroke-width="1" stroke-dasharray="2 3"/>`;}
+  // y labels
+  for(let i=0;i<=4;i++){const v=max-(max-min)*i/4;const y=padT+(H-padT-padB)*i/4;
+    svg+=`<text x="${padL-6}" y="${y+3}" text-anchor="end" font-size="8" fill="var(--dim)" font-family="var(--mono)">${Math.round(v)}</text>`;}
+  // series
+  series.forEach(s=>{
+    const p=s.data.map((v,i)=>[X(i),Y(v)]);
+    svg+=poly(p,s.color,2)+dots(p,s.color,2.6);
+  });
+  // x labels (max ~6)
+  const step=Math.ceil(n/6);
+  labels.forEach((lb,i)=>{if(i%step===0||i===n-1){svg+=`<text x="${X(i)}" y="${H-8}" text-anchor="middle" font-size="8" fill="var(--dim)" font-family="var(--mono)">${lb}</text>`;}});
+  svg+='</svg>';
+  el.innerHTML=svg;
+}
+
+function drawBody(el,labels,series){
+  const W=496,H=190,padL=20,padR=14,padT=14,padB=26;
+  const n=labels.length;
+  const X=i=>padL+(n<=1?(W-padL-padR)/2:(W-padL-padR)*i/(n-1));
+  let svg=svgEl(W,H);
+  svg+=gridLines(W,H,padL,padR,padT,padB,0,4);
+  // each series normalized to its own min/max so all visible
+  series.forEach(s=>{
+    if(s.pts.length===0)return;
+    const vals=s.pts.map(p=>p[1]);
+    let mn=Math.min(...vals),mx=Math.max(...vals);
+    if(mn===mx){mn-=1;mx+=1;}
+    const Y=v=>padT+(H-padT-padB)*(1-(v-mn)/(mx-mn));
+    const p=s.pts.map(pt=>[X(pt[0]),Y(pt[1])]);
+    svg+=poly(p,s.color,2)+dots(p,s.color,2.8);
+  });
+  const step=Math.ceil(n/6);
+  labels.forEach((lb,i)=>{if(i%step===0||i===n-1){svg+=`<text x="${X(i)}" y="${H-8}" text-anchor="middle" font-size="8" fill="var(--dim)" font-family="var(--mono)">${lb}</text>`;}});
+  svg+='</svg>';
+  el.innerHTML=svg;
+}
+
+/* ---- statistics: OLS linear regression + prediction interval ---- */
+function linreg(pts){
+  // pts: [[x,y],...]  returns {a,b,n,se,sxx,xbar,resid}
+  const n=pts.length;
+  const xbar=pts.reduce((s,p)=>s+p[0],0)/n;
+  const ybar=pts.reduce((s,p)=>s+p[1],0)/n;
+  let sxy=0,sxx=0;
+  pts.forEach(p=>{sxy+=(p[0]-xbar)*(p[1]-ybar);sxx+=(p[0]-xbar)**2;});
+  const b = sxx===0?0:sxy/sxx;
+  const a = ybar-b*xbar;
+  // residual std error
+  let sse=0; pts.forEach(p=>{const e=p[1]-(a+b*p[0]);sse+=e*e;});
+  const df=Math.max(n-2,1);
+  const se=Math.sqrt(sse/df);
+  return {a,b,n,se,sxx,xbar,df};
+}
+// two-tailed t critical ~95% (approx by df)
+function tcrit(df){
+  const tbl={1:12.71,2:4.30,3:3.18,4:2.78,5:2.57,6:2.45,7:2.36,8:2.31,9:2.26,10:2.23,
+    12:2.18,15:2.13,20:2.09,25:2.06,30:2.04};
+  if(tbl[df])return tbl[df];
+  const ks=Object.keys(tbl).map(Number).sort((a,b)=>a-b);
+  if(df>30)return 1.96;
+  // nearest below
+  let best=ks[0]; ks.forEach(k=>{if(k<=df)best=k;});
+  return tbl[best];
+}
+// prediction-interval half-width at x0 for a NEW observation
+function predHalf(reg,x0){
+  if(reg.sxx===0||reg.n<3) return reg.se*tcrit(reg.df);
+  const t=tcrit(reg.df);
+  return t*reg.se*Math.sqrt(1+1/reg.n+((x0-reg.xbar)**2)/reg.sxx);
+}
+
+function drawPrediction(el,keys,bfP,waistP){
+  const W=496,H=210,padL=36,padR=44,padT=16,padB=26;
+  const n=keys.length;
+  const FUTURE=Math.max(2,Math.round(n*0.4)); // forecast horizon
+  const totalX=n-1+FUTURE;
+  const X=i=>padL+(W-padL-padR)*(totalX<=0?0.5:i/totalX);
+
+  const note=document.getElementById('predNote');
+  const haveBF = bfP.length>=2, haveW = waistP.length>=2;
+  if(!haveBF && !haveW){
+    el.innerHTML=`<div class="empty-state" style="padding:18px">need ≥2 body-fat or waist entries<br>to fit a trend.</div>`;
+    if(note)note.textContent='not enough data points for a forecast';
+    return;
+  }
+
+  // build a forecast block for one metric
+  function build(pts,color,axisSide){
+    if(pts.length<2)return null;
+    const reg=linreg(pts);
+    const lastX = pts[pts.length-1][0];
+    // forecast points across observed + future
+    const fc=[]; const bandTop=[],bandBot=[];
+    for(let i=0;i<=totalX;i++){
+      const yhat=reg.a+reg.b*i;
+      fc.push([i,yhat]);
+      if(i>=lastX){
+        const h=predHalf(reg,i);
+        bandTop.push([i,yhat+h]); bandBot.push([i,yhat-h]);
+      }
+    }
+    const nextY=reg.a+reg.b*totalX;
+    return {reg,fc,bandTop,bandBot,pts,color,nextY,trend:reg.b};
+  }
+  const bf=haveBF?build(bfP,'var(--blue)'):null;
+  const wa=haveW?build(waistP,'var(--teal)'):null;
+
+  // combined y-range
+  function rangeOf(blk){const ys=blk.pts.map(p=>p[1]).concat(blk.fc.map(p=>p[1])).concat(blk.bandTop.map(p=>p[1]),blk.bandBot.map(p=>p[1]));return [Math.min(...ys),Math.max(...ys)];}
+  // separate vertical scales: bf on left, waist on right (different units)
+  let svg=svgEl(W,H);
+  svg+=gridLines(W,H,padL,padR,padT,padB,0,4);
+  // "now" divider
+  const nowx=X(n-1);
+  svg+=`<line x1="${nowx}" y1="${padT}" x2="${nowx}" y2="${H-padB}" stroke="var(--line-2)" stroke-width="1" stroke-dasharray="3 3"/>`;
+  svg+=`<text x="${nowx}" y="${padT-4}" text-anchor="middle" font-size="7.5" fill="var(--dim)" font-family="var(--mono)">now</text>`;
+
+  function plotBlock(blk,scale){
+    if(!blk)return'';
+    const[mn,mx]=scale;
+    const Y=v=>padT+(H-padT-padB)*(1-(v-mn)/((mx-mn)||1));
+    let s='';
+    // CI band (polygon)
+    if(blk.bandTop.length>1){
+      const top=blk.bandTop.map(p=>[X(p[0]),Y(p[1])]);
+      const bot=blk.bandBot.map(p=>[X(p[0]),Y(p[1])]).reverse();
+      const dpath=top.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ')+
+        ' '+bot.map(p=>'L'+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ')+' Z';
+      s+=`<path d="${dpath}" fill="${blk.color}" opacity="0.13" stroke="none"/>`;
+    }
+    // forecast dashed (from last obs onward) + fitted solid over observed
+    const lastX=blk.pts[blk.pts.length-1][0];
+    const obsPart=blk.fc.filter(p=>p[0]<=lastX).map(p=>[X(p[0]),Y(p[1])]);
+    const futPart=blk.fc.filter(p=>p[0]>=lastX).map(p=>[X(p[0]),Y(p[1])]);
+    s+=poly(obsPart,blk.color,1.6,false);
+    s+=poly(futPart,blk.color,1.8,true);
+    // actual data points
+    const dp=blk.pts.map(p=>[X(p[0]),Y(p[1])]);
+    s+=dots(dp,blk.color,3);
+    // endpoint forecast label
+    const ey=Y(blk.nextY);
+    s+=`<circle cx="${X(blk.fc[blk.fc.length-1][0]).toFixed(1)}" cy="${ey.toFixed(1)}" r="3" fill="${blk.color}" opacity="0.5"/>`;
+    return s;
+  }
+
+  let bfScale=null,waScale=null;
+  if(bf){bfScale=rangeOf(bf);const pad=(bfScale[1]-bfScale[0])*0.18||1;bfScale=[bfScale[0]-pad,bfScale[1]+pad];}
+  if(wa){waScale=rangeOf(wa);const pad=(waScale[1]-waScale[0])*0.18||1;waScale=[waScale[0]-pad,waScale[1]+pad];}
+
+  if(bf)svg+=plotBlock(bf,bfScale);
+  if(wa)svg+=plotBlock(wa,waScale);
+
+  // left axis labels (bf, blue)
+  if(bf){for(let i=0;i<=4;i++){const v=bfScale[1]-(bfScale[1]-bfScale[0])*i/4;const y=padT+(H-padT-padB)*i/4;
+    svg+=`<text x="${padL-5}" y="${y+3}" text-anchor="end" font-size="7.5" fill="var(--blue)" font-family="var(--mono)">${v.toFixed(1)}</text>`;}}
+  // right axis (waist, teal)
+  if(wa){for(let i=0;i<=4;i++){const v=waScale[1]-(waScale[1]-waScale[0])*i/4;const y=padT+(H-padT-padB)*i/4;
+    svg+=`<text x="${W-padR+5}" y="${y+3}" text-anchor="start" font-size="7.5" fill="var(--teal)" font-family="var(--mono)">${v.toFixed(1)}</text>`;}}
+
+  // x labels
+  const allLabels=keys.map(k=>fmtShort(k));
+  const step=Math.ceil((n)/5);
+  allLabels.forEach((lb,i)=>{if(i%step===0||i===n-1){svg+=`<text x="${X(i)}" y="${H-8}" text-anchor="middle" font-size="7.5" fill="var(--dim)" font-family="var(--mono)">${lb}</text>`;}});
+  svg+=`<text x="${X(totalX)}" y="${H-8}" text-anchor="end" font-size="7.5" fill="var(--dim)" font-family="var(--mono)">+${FUTURE}d</text>`;
+  svg+='</svg>';
+  el.innerHTML=svg;
+
+  // forecast summary note
+  let parts=[];
+  if(bf){const dir=bf.trend<0?'↓':bf.trend>0?'↑':'→';parts.push(`body-fat ${dir} ~${bf.nextY.toFixed(1)}% in +${FUTURE}d`);}
+  if(wa){const dir=wa.trend<0?'↓':wa.trend>0?'↑':'→';parts.push(`waist ${dir} ~${wa.nextY.toFixed(1)}cm`);}
+  if(note)note.textContent='OLS trend · 95% prediction band · '+parts.join(' · ');
+}
+
+/* ============================================================
+   16+8 FASTING CLOCK
+   ============================================================ */
+function effNow(){
+  // ?t=HHmm preview
+  const u=new URL(location.href);
+  const t=u.searchParams.get('t');
+  if(t&&t.length>=3){const hh=parseInt(t.slice(0,2),10),mm=parseInt(t.slice(2),10);const d=new Date();d.setHours(hh,mm,0,0);return d;}
+  return new Date();
+}
+function windowBounds(){
+  const now=effNow();
+  const open=new Date(now); open.setHours(EAT_START_H,EAT_START_M,0,0);
+  const close=new Date(open); close.setHours(open.getHours()+WINDOW_HOURS);
+  return {now,open,close};
+}
+let fastTimer=null;
+function renderFast(){
+  const {now,open,close}=windowBounds();
+  const canEat = now>=open && now<close;
+  const hh=pad(now.getHours()), mm=pad(now.getMinutes());
+
+  // progress of the 8h eating window
+  let frac;
+  if(canEat) frac=(now-open)/(close-open);
+  else { // fasting: progress through the 16h fast (from close → next open)
+    const nextOpen=new Date(open); if(now>=close) nextOpen.setDate(nextOpen.getDate()+1);
+    const prevClose=new Date(close); if(now<open) prevClose.setDate(prevClose.getDate()-1);
+    const span=(canEat? (close-open):(nextOpen-prevClose));
+    frac=(now-(now<open?prevClose:close))/span;
+  }
+  frac=Math.max(0,Math.min(1,frac));
+
+  // countdown
+  let cdLabel,cdVal;
+  if(canEat){ const ms=close-now; cdLabel='window closes in'; cdVal=fmtDur(ms);}
+  else{ const no=new Date(open); if(now>=close)no.setDate(no.getDate()+1); const ms=no-now; cdLabel='next window opens in'; cdVal=fmtDur(ms);}
+
+  const R=110, C=2*Math.PI*R;
+  const accent = canEat?'var(--green)':'var(--red)';
+  const dashShown = (canEat?frac:frac)*C;
+
+  body.innerHTML=`
+  <div class="view show">
+    <div class="fast-wrap">
+      <div class="fast-ring">
+        <svg viewBox="0 0 248 248">
+          <circle cx="124" cy="124" r="${R}" fill="none" stroke="var(--line)" stroke-width="10"/>
+          <circle cx="124" cy="124" r="${R}" fill="none" stroke="${accent}" stroke-width="10"
+            stroke-linecap="round" stroke-dasharray="${dashShown.toFixed(1)} ${C.toFixed(1)}"
+            style="transition:stroke-dasharray .6s ease"/>
+        </svg>
+        <div class="fast-center">
+          <div class="fast-now" style="color:${accent}">${hh}:${mm}</div>
+          <div class="fast-state" style="color:${accent}">${canEat?'EATING WINDOW':'FASTING'}</div>
+          <div class="fast-line de">${canEat?Math.round(frac*100)+'% of window':Math.round(frac*100)+'% of fast'}</div>
+        </div>
+      </div>
+
+      <div class="fast-msg ${canEat?'eat':'fast'}">
+        <div class="m-en">${canEat?'you can freely eat now':'fasting — no food now'}</div>
+        <div class="m-de">${canEat?'Du darfst jetzt frei essen':'Fastenzeit — jetzt nichts essen'}</div>
+      </div>
+
+      <div class="countdown">${cdLabel} · <b>${cdVal}</b></div>
+
+      <div class="window-info" style="margin-top:14px">
+        <div class="wr"><span class="k">eating window</span><span class="v">${pad(open.getHours())}:${pad(open.getMinutes())} – ${pad(close.getHours())}:${pad(close.getMinutes())}</span></div>
+        <div class="wr"><span class="k">protocol</span><span class="v">16 : 8</span></div>
+        <div class="wr"><span class="k">fast length</span><span class="v">16 h</span></div>
+      </div>
+    </div>
+  </div>`;
+
+  // live tick
+  clearTimeout(fastTimer);
+  fastTimer=setTimeout(()=>{ if(state.tab==='fast') renderFast(); },1000*20);
+}
+function fmtDur(ms){
+  if(ms<0)ms=0;
+  const h=Math.floor(ms/3600000), m=Math.floor((ms%3600000)/60000);
+  return `${h}h ${pad(m)}m`;
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  state.tab=t.dataset.tab;
+  if(state.tab==='record')state.view='list';
+  render();
+}));
+
+(function init(){
+  // if localStorage is unavailable (rare private-mode), fall back to in-memory
+  try{ localStorage.setItem('__test__','1'); localStorage.removeItem('__test__'); }
+  catch(e){
+    const mem={};
+    window.localStorage = {
+      getItem:k=>mem[k]??null,
+      setItem:(k,v)=>{mem[k]=String(v);},
+      removeItem:k=>{delete mem[k];}
+    };
+    toast('本机存储不可用 · 仅本次有效');
+  }
+  loadAll();
+  getDay(todayKey());
+  document.getElementById('loading').classList.add('hide');
+  render();
+  // refresh from your VPS in the background (no-op if sync not configured)
+  pullAndMerge();
+})();
+</script>
+</body>
+</html>
