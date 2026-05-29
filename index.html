@@ -28,7 +28,7 @@
       /* 主背景 / 输入框底色 (page background) */
       --bg-2: #ffffff;
       /* 次级背景 (rarely seen) */
-      --panel: #FAFAFA;
+      --panel: #E8E8E8;
       /* 卡片底色 (card background) */
       --panel-2: #EBF7FF;
       /* 卡片内小块底色 (inner chips/metrics) */
@@ -531,14 +531,14 @@
     }
 
     .set-row {
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 10px;
       margin-bottom: 10px;
       align-items: stretch;
     }
 
     .set-row .set-field {
-      flex: 1 1 0;
       min-width: 0;
       display: flex;
       flex-direction: column;
@@ -561,7 +561,14 @@
       font-size: 13px;
       padding: 9px 10px;
       width: 100%;
+      min-width: 0;
       box-sizing: border-box;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .set-field input[type="date"]::-webkit-date-and-time-value {
+      text-align: left;
     }
 
     .set-field input:focus,
@@ -702,7 +709,7 @@
     }
 
     .daycard.today {
-      border-color: var(--green);
+      border-color: var(--green-soft);
       background: var(--green-soft);
     }
 
@@ -835,7 +842,7 @@
 
     .delbtn:hover {
       background: var(--red-soft);
-      border-color: var(--red);
+      border-color: var(--red-soft);
     }
 
     .delbtn:active {
@@ -1342,7 +1349,7 @@
 
     .fast-msg.fast {
       background: var(--red-soft);
-      border-color: rgba(248, 81, 73, .4);
+      border-color: var(--red-soft);
       color: var(--red);
     }
 
