@@ -2675,10 +2675,16 @@
       el.textContent = 'error · 请截图发给开发者\n\n' + msg;
     }
     window.addEventListener('error', e => {
+      // cross-origin scripts (Safari extensions, content blockers, injected helpers)
+      // surface as bare "Script error." with no filename/line — not actionable, skip.
+      if ((!e.filename || e.filename === '') && (e.message || '').toLowerCase().includes('script error')) return;
       showFatalError((e.message || 'unknown') + '\n' + (e.filename || '') + ':' + (e.lineno || '') + ':' + (e.colno || ''));
     });
     window.addEventListener('unhandledrejection', e => {
-      showFatalError('promise: ' + (e.reason && (e.reason.stack || e.reason.message) || e.reason));
+      const reason = e.reason;
+      const msg = reason && (reason.stack || reason.message) || String(reason);
+      if (!msg || /^script error\.?$/i.test(msg.trim())) return;
+      showFatalError('promise: ' + msg);
     });
 
     (function init() {
