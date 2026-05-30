@@ -970,36 +970,98 @@
       font-size: 10px;
     }
 
-    .meal-in {
-      width: 100%;
+    .meal-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .meal-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .meal-row .nm-in {
+      flex: 1;
+      min-width: 0;
       background: var(--bg);
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 7px;
       color: var(--fg);
       font-family: var(--mono);
       font-size: 12px;
-      padding: 9px 10px;
-      resize: none;
-      line-height: 1.5;
+      padding: 6px 8px;
       transition: border-color .15s;
     }
 
-    .meal-in:focus {
+    .meal-row .nm-in:focus {
       outline: none;
       border-color: var(--amber);
     }
 
-    .meal-cal {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 9px;
-      justify-content: flex-end;
+    .meal-row .u {
+      color: var(--dim);
+      font-size: 10px;
     }
 
-    .meal-cal label {
+    .meal-row .rm-btn {
+      background: transparent;
+      border: none;
+      color: var(--dim);
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 6px;
+      transition: color .15s;
+    }
+
+    .meal-row .rm-btn:active {
+      color: var(--red);
+    }
+
+    .add-meal {
+      margin-top: 10px;
+      background: transparent;
+      border: 1px dashed var(--line-2);
+      border-radius: 8px;
+      color: var(--dim);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 7px 10px;
+      width: 100%;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .add-meal:active {
+      color: var(--amber);
+      border-color: var(--amber);
+    }
+
+    .meal-sub {
+      margin-top: 8px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      align-items: center;
       font-size: 10px;
       color: var(--dim);
+    }
+
+    .meal-sub b {
+      color: var(--amber);
+      font-size: 11px;
+    }
+
+    .meal-empty {
+      color: var(--dim);
+      font-size: 11px;
+      font-style: italic;
+      padding: 4px 2px;
     }
 
     /* totals */
@@ -1522,11 +1584,28 @@
     function blankDay() {
       return {
         exercises: {},          // {name: kcal}
-        meals: { breakfast: { text: '', cal: '' }, lunch: { text: '', cal: '' }, dinner: { text: '', cal: '' } },
+        meals: { breakfast: { items: [] }, lunch: { items: [] }, dinner: { items: [] } },
         weight: '', waist: '', leg: '', bodyfat: ''
       };
     }
     function getDay(k) { if (!state.data[k]) state.data[k] = blankDay(); return state.data[k]; }
+
+    // Migrate one meal entry from any historical shape to { items: [{name, cal}] }.
+    // Legacy shape was { text, cal } — one big textarea + one number; if non-empty,
+    // promote to a single item so the user keeps their data and can split it later.
+    function normalizeMeal(m) {
+      if (!m || typeof m !== 'object') return { items: [] };
+      if (Array.isArray(m.items)) {
+        const items = m.items
+          .filter(it => it && typeof it === 'object')
+          .map(it => ({ name: it.name == null ? '' : String(it.name), cal: it.cal == null ? '' : String(it.cal) }));
+        return { items };
+      }
+      const text = m.text == null ? '' : String(m.text);
+      const cal = m.cal == null ? '' : String(m.cal);
+      if (text.trim() || cal.trim()) return { items: [{ name: text, cal }] };
+      return { items: [] };
+    }
 
     // server payloads from older app versions (or partial writes) may miss fields;
     // backfill against blankDay() so downstream code can trust the shape.
@@ -1537,15 +1616,15 @@
       return {
         exercises: d.exercises && typeof d.exercises === 'object' ? d.exercises : base.exercises,
         meals: {
-          breakfast: Object.assign({}, base.meals.breakfast, meals.breakfast),
-          lunch:     Object.assign({}, base.meals.lunch,     meals.lunch),
-          dinner:    Object.assign({}, base.meals.dinner,    meals.dinner),
+          breakfast: normalizeMeal(meals.breakfast),
+          lunch: normalizeMeal(meals.lunch),
+          dinner: normalizeMeal(meals.dinner),
         },
-        weight:  d.weight  ?? '',
-        waist:   d.waist   ?? '',
-        leg:     d.leg     ?? '',
+        weight: d.weight ?? '',
+        waist: d.waist ?? '',
+        leg: d.leg ?? '',
         bodyfat: d.bodyfat ?? '',
-        _t:      d._t,
+        _t: d._t,
       };
     }
     function normalizeAll(data) {
@@ -1686,7 +1765,11 @@
 
     /* ---------- compute ---------- */
     function burnTotal(d) { return Object.values(d.exercises).reduce((s, v) => s + num(v), 0); }
-    function intakeTotal(d) { return ['breakfast', 'lunch', 'dinner'].reduce((s, m) => s + num(d.meals[m].cal), 0); }
+    function mealTotal(meal) {
+      if (!meal || !Array.isArray(meal.items)) return 0;
+      return meal.items.reduce((s, it) => s + num(it && it.cal), 0);
+    }
+    function intakeTotal(d) { return ['breakfast', 'lunch', 'dinner'].reduce((s, m) => s + mealTotal(d.meals[m]), 0); }
     function deficit(d) { return burnTotal(d) - intakeTotal(d); } // legacy: exercise burn − food
 
     /* ---------- BMR / TDEE / effective deficit ---------- */
@@ -1977,7 +2060,8 @@
         const ok = confirm(`导入 ${nDays} 天的数据？\nImport ${nDays} day(s)?\n\n确定 = 合并（同一天会被备份覆盖）\nCancel = 取消`);
         if (!ok) return;
         // merge: incoming overwrites same dates, keeps others
-        state.data = Object.assign({}, state.data, incoming);
+        // normalize imported entries so legacy meal shapes ({text,cal}) migrate to {items}
+        state.data = Object.assign({}, state.data, normalizeAll(incoming));
         saveAll();
         toast(`已导入 ${nDays} 天 · imported`);
         render();
@@ -2069,15 +2153,23 @@
     </div>`).join('');
 
       function meal(id, label) {
+        const items = d.meals[id].items;
+        const sub = mealTotal(d.meals[id]);
+        const rows = items.length === 0
+          ? `<div class="meal-empty">no food yet — tap “+ add food” below.</div>`
+          : items.map((it, i) => `
+      <div class="meal-row" data-meal="${id}" data-i="${i}">
+        <input class="nm-in" data-f="name" placeholder="what did you eat?" value="${esc(it.name)}">
+        <input class="num-in" data-f="cal" inputmode="numeric" placeholder="0" value="${esc(it.cal)}">
+        <span class="u">kcal</span>
+        <button class="rm-btn" type="button" data-act="rm" title="remove">×</button>
+      </div>`).join('');
         return `<div class="card">
       <div class="card-h"><span class="ic">${id === 'breakfast' ? '☀' : id === 'lunch' ? '☼' : '☾'}</span>
         <h3>${label}</h3><span class="tag">${id}</span></div>
-      <textarea class="meal-in" data-meal="${id}" data-f="text" rows="2" placeholder="what did you eat?">${esc(d.meals[id].text)}</textarea>
-      <div class="meal-cal">
-        <label>intake</label>
-        <input class="num-in" data-meal="${id}" data-f="cal" inputmode="numeric" placeholder="0" value="${esc(d.meals[id].cal)}">
-        <span class="u" style="color:var(--dim);font-size:10px">kcal</span>
-      </div>
+      <div class="meal-rows" data-meal-list="${id}">${rows}</div>
+      <button class="add-meal" type="button" data-add="${id}">＋ add food</button>
+      <div class="meal-sub">subtotal <b id="sub-${id}">${sub}</b> kcal</div>
     </div>`;
       }
 
@@ -2153,11 +2245,36 @@
         recalcDay(k); queueSave(k);
       }));
 
-      // meals
-      body.querySelectorAll('[data-meal]').forEach(inp => inp.addEventListener('input', () => {
-        d.meals[inp.dataset.meal][inp.dataset.f] = inp.value;
-        if (inp.dataset.f === 'cal') recalcDay(k);
-        queueSave(k);
+      // meals — typing in a name/cal cell updates the matching item in place
+      body.querySelectorAll('.meal-row').forEach(row => {
+        const id = row.dataset.meal, i = Number(row.dataset.i);
+        row.querySelectorAll('input[data-f]').forEach(inp => inp.addEventListener('input', () => {
+          const item = d.meals[id].items[i];
+          if (!item) return;
+          item[inp.dataset.f] = inp.value;
+          if (inp.dataset.f === 'cal') {
+            const sub = document.getElementById('sub-' + id);
+            if (sub) sub.textContent = mealTotal(d.meals[id]);
+            recalcDay(k);
+          }
+          queueSave(k);
+        }));
+        const rm = row.querySelector('[data-act="rm"]');
+        if (rm) rm.addEventListener('click', () => {
+          d.meals[id].items.splice(i, 1);
+          queueSave(k); renderDay();
+        });
+      });
+
+      // add a new food row to a meal
+      body.querySelectorAll('[data-add]').forEach(btn => btn.addEventListener('click', () => {
+        const id = btn.dataset.add;
+        d.meals[id].items.push({ name: '', cal: '' });
+        queueSave(k); renderDay();
+        const list = body.querySelector(`[data-meal-list="${id}"]`);
+        const last = list && list.lastElementChild;
+        const nm = last && last.querySelector && last.querySelector('.nm-in');
+        if (nm) nm.focus();
       }));
 
       // body metrics — weight/bf changes BMR/TDEE, so re-render fully if profile complete
